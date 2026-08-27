@@ -11,18 +11,22 @@ import { Switch } from "@/components/ui/switch";
 import { MoneyInput } from "@/components/money-input";
 import { PremiumBreakdownCard } from "@/components/premium-breakdown";
 import { SearchableSelect } from "@/components/searchable-select";
+import { PdfDropzone, PdfSummary } from "@/components/pdf-dropzone";
 import {
   defaultCommissionForBranch,
   isPropertyBranch,
   isVehicleBranch,
   profileForBranch,
 } from "@/lib/catalog";
+import { isTaliProducer, splitCommission } from "@/lib/commission";
 import { defaultEndDate, todayISO } from "@/lib/dates";
 import { uid } from "@/lib/id";
-import { formatTRY, round2 } from "@/lib/money";
+import { formatPercent, formatTRY, round2 } from "@/lib/money";
 import { calculatePremium, netFromGross, suggestedCommission } from "@/lib/premiums";
 import { getDb, upsertBranch, upsertCatalogName } from "@/lib/store";
-import type { BranchItem, CatalogItem, Policy } from "@/lib/types";
+import { mergeSettings } from "@/lib/settings";
+import type { AppSettings, BranchItem, CatalogItem, Policy } from "@/lib/types";
+import type { ParsedPolicyDraft } from "@/lib/pdf-policy";
 
 type FormState = {
   issueDate: string;
@@ -48,11 +52,17 @@ type FormState = {
   status: Policy["status"];
   fromGross: boolean;
   grossOverride: number | null;
+  cancelDate: string;
+  cancelReason: string;
+  printedGiderVergisi: number | null;
+  printedGhk: number | null;
+  printedThgf: number | null;
+  printedYsv: number | null;
 };
 
-function initialState(policy?: Policy): FormState {
+function initialState(policy?: Policy, template: "new" | "cancel" = "new"): FormState {
+  const today = todayISO();
   if (!policy) {
-    const today = todayISO();
     return {
       issueDate: today,
       startDate: today,
@@ -62,7 +72,7 @@ function initialState(policy?: Policy): FormState {
       phone: "",
       birthDate: "",
       partaj: "",
-      branch: "Trafik",
+      branch: template === "cancel" ? "Trafik" : "Trafik",
       policyNo: "",
       plate: "",
       documentSerial: "",
@@ -74,9 +84,15 @@ function initialState(policy?: Policy): FormState {
       commission: null,
       producer: "",
       notes: "",
-      status: "aktif",
+      status: template === "cancel" ? "iptal" : "aktif",
       fromGross: false,
       grossOverride: null,
+      cancelDate: template === "cancel" ? today : "",
+      cancelReason: "",
+      printedGiderVergisi: null,
+      printedGhk: null,
+      printedThgf: null,
+      printedYsv: null,
     };
   }
   return {
@@ -103,6 +119,43 @@ function initialState(policy?: Policy): FormState {
     status: policy.status,
     fromGross: false,
     grossOverride: policy.grossPremium,
+    cancelDate: policy.cancelDate ?? "",
+    cancelReason: policy.cancelReason ?? "",
+    printedGiderVergisi: policy.giderVergisi,
+    printedGhk: policy.ghk,
+    printedThgf: policy.thgf,
+    printedYsv: policy.ysv,
+  };
+}
+
+function applyDraft(prev: FormState, draft: ParsedPolicyDraft, fileName: string): FormState {
+  return {
+    ...prev,
+    issueDate: draft.issueDate || prev.issueDate,
+    startDate: draft.startDate || prev.startDate,
+    endDate: draft.endDate || prev.endDate,
+    customerName: draft.customerName || prev.customerName,
+    nationalId: draft.nationalId || prev.nationalId,
+    phone: draft.phone || prev.phone,
+    birthDate: draft.birthDate || prev.birthDate,
+    partaj: draft.partaj || prev.partaj,
+    branch: draft.branch || prev.branch,
+    policyNo: draft.policyNo || prev.policyNo,
+    plate: draft.plate || prev.plate,
+    addressCode: draft.addressCode || prev.addressCode,
+    daskNo: draft.daskNo || prev.daskNo,
+    netPremium: draft.netPremium,
+    compulsoryNet: draft.compulsoryNet,
+    firePremium: draft.firePremium,
+    commission: null,
+    notes: [prev.notes, draft.notes, fileName].filter(Boolean).join(" · "),
+    status: draft.status === "iptal" ? "iptal" : prev.status,
+    fromGross: false,
+    grossOverride: draft.grossPremium,
+    printedGiderVergisi: draft.giderVergisi,
+    printedGhk: draft.ghk,
+    printedThgf: draft.thgf,
+    printedYsv: draft.ysv,
   };
 }
 
@@ -111,15 +164,21 @@ export function PolicyForm({
   partajlar,
   branches,
   producers,
+  settings,
+  template = "new",
 }: {
   policy?: Policy;
   partajlar: CatalogItem[];
   branches: BranchItem[];
   producers: CatalogItem[];
+  settings?: AppSettings;
+  template?: "new" | "cancel";
 }) {
   const router = useRouter();
-  const [form, setForm] = useState<FormState>(() => initialState(policy));
+  const merged = mergeSettings(settings);
+  const [form, setForm] = useState<FormState>(() => initialState(policy, template));
   const [saving, setSaving] = useState(false);
+  const [draft, setDraft] = useState<ParsedPolicyDraft | null>(null);
 
   const profile = profileForBranch(form.branch, branches);
   const defaultRate = defaultCommissionForBranch(form.branch, branches);
@@ -131,6 +190,7 @@ export function PolicyForm({
           netPremium: form.grossOverride ?? 0,
           compulsoryNet: form.compulsoryNet,
           firePremium: form.firePremium,
+          ysvAmount: form.printedYsv,
         })
       : (form.netPremium ?? 0);
     return calculatePremium({
@@ -138,6 +198,11 @@ export function PolicyForm({
       netPremium: net,
       compulsoryNet: form.compulsoryNet,
       firePremium: form.firePremium,
+      ysvAmount: form.printedYsv,
+      giderVergisiAmount: form.printedGiderVergisi,
+      ghkAmount: form.printedGhk,
+      thgfAmount: form.printedThgf,
+      grossAmount: form.fromGross ? form.grossOverride : form.grossOverride,
     });
   }, [form, profile]);
 
@@ -145,6 +210,7 @@ export function PolicyForm({
     form.commission === null
       ? suggestedCommission(breakdown.netPremium, defaultRate)
       : form.commission;
+  const split = splitCommission(commission, form.producer, merged);
 
   function patch(partial: Partial<FormState>) {
     setForm((prev) => {
@@ -154,6 +220,13 @@ export function PolicyForm({
       }
       if (partial.branch && prev.commission === null) {
         next.commission = null;
+      }
+      if (partial.netPremium !== undefined && partial.printedGiderVergisi === undefined) {
+        next.printedGiderVergisi = null;
+        next.printedGhk = null;
+        next.printedThgf = null;
+        next.printedYsv = null;
+        if (!partial.grossOverride) next.grossOverride = null;
       }
       return next;
     });
@@ -176,6 +249,7 @@ export function PolicyForm({
     setSaving(true);
     try {
       const now = new Date().toISOString();
+      const status = template === "cancel" ? "iptal" : form.status;
       const record: Policy = {
         id: policy?.id ?? uid(),
         createdAt: policy?.createdAt ?? now,
@@ -204,9 +278,13 @@ export function PolicyForm({
         grossPremium: breakdown.grossPremium,
         commission,
         commissionRate: breakdown.netPremium ? round2(commission / breakdown.netPremium) : defaultRate,
+        producerCommission: split.producerCommission,
+        agencyCommission: split.agencyCommission,
         producer: form.producer.trim(),
         notes: form.notes.trim(),
-        status: form.status,
+        status,
+        cancelDate: status === "iptal" ? form.cancelDate : "",
+        cancelReason: status === "iptal" ? form.cancelReason.trim() : "",
       };
       await getDb().policies.put(record);
       await upsertCatalogName("partajlar", record.partaj);
@@ -217,8 +295,8 @@ export function PolicyForm({
         branchMeta?.profile ?? profile,
         branchMeta?.defaultCommissionRate ?? defaultRate,
       );
-      toast.success(policy ? "Poliçe güncellendi." : "Poliçe kaydedildi.");
-      router.push("/policeler");
+      toast.success(policy ? "Poliçe güncellendi." : status === "iptal" ? "İptal poliçesi kaydedildi." : "Poliçe kaydedildi.");
+      router.push(status === "iptal" ? "/policeler?durum=iptal" : "/policeler");
     } finally {
       setSaving(false);
     }
@@ -227,11 +305,23 @@ export function PolicyForm({
   return (
     <form onSubmit={onSubmit} className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
       <div className="space-y-6">
+        {!policy ? (
+          <section className="space-y-3">
+            <PdfDropzone
+              onParsed={(parsed, fileName) => {
+                setDraft(parsed);
+                setForm((prev) => applyDraft(prev, parsed, fileName));
+              }}
+            />
+            {draft ? <PdfSummary draft={draft} /> : null}
+          </section>
+        ) : null}
+
         <section className="space-y-4 rounded-xl border bg-card p-4">
           <div>
             <h2 className="text-sm font-semibold">Önce bunları seçin</h2>
             <p className="text-muted-foreground text-xs">
-              Partaj ve branş, prim hesabını ve komisyonu otomatik ayarlar.
+              Partaj ve branş, prim hesabını ve komisyon oranını otomatik ayarlar.
             </p>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
@@ -253,14 +343,7 @@ export function PolicyForm({
                 options={branches.map((b) => ({
                   value: b.id,
                   label: b.name,
-                  hint:
-                    b.profile === "trafik"
-                      ? "GHK + THGF + gider vergisi"
-                      : b.profile === "konut"
-                        ? "Gider vergisi + YSV"
-                        : b.profile === "exempt"
-                          ? "Vergisiz / net = brüt"
-                          : "Gider vergisi %5",
+                  hint: `${Math.round(b.defaultCommissionRate * 100)}% komisyon`,
                 }))}
               />
             </Field>
@@ -288,11 +371,7 @@ export function PolicyForm({
               />
             </Field>
             <Field label="Telefon">
-              <Input
-                className="h-9"
-                value={form.phone}
-                onChange={(e) => patch({ phone: e.target.value })}
-              />
+              <Input className="h-9" value={form.phone} onChange={(e) => patch({ phone: e.target.value })} />
             </Field>
             <Field label="Doğum tarihi">
               <Input
@@ -302,12 +381,18 @@ export function PolicyForm({
                 onChange={(e) => patch({ birthDate: e.target.value })}
               />
             </Field>
-            <Field label="Tali / kaynak">
+            <Field label="Tali">
               <SearchableSelect
                 value={form.producer}
                 onChange={(producer) => patch({ producer })}
-                placeholder="Tali seçin (opsiyonel)"
-                options={producers.map((p) => ({ value: p.id, label: p.name }))}
+                placeholder="Tali yoksa boş bırakın"
+                options={producers.map((p) => ({
+                  value: p.id,
+                  label: p.name,
+                  hint: isTaliProducer(p.name, merged)
+                    ? `Toplam komisyonun %${Math.round(merged.taliShareRate * 100)}’i`
+                    : "Acente işi",
+                }))}
               />
             </Field>
           </div>
@@ -341,11 +426,7 @@ export function PolicyForm({
               />
             </Field>
             <Field label="Poliçe no" className="md:col-span-2">
-              <Input
-                className="h-9"
-                value={form.policyNo}
-                onChange={(e) => patch({ policyNo: e.target.value })}
-              />
+              <Input className="h-9" value={form.policyNo} onChange={(e) => patch({ policyNo: e.target.value })} />
             </Field>
             {isVehicleBranch(form.branch) ? (
               <>
@@ -374,60 +455,75 @@ export function PolicyForm({
                     onChange={(e) => patch({ addressCode: e.target.value })}
                   />
                 </Field>
-                <Field label="DASK / poliçe no">
-                  <Input
-                    className="h-9"
-                    value={form.daskNo}
-                    onChange={(e) => patch({ daskNo: e.target.value })}
-                  />
+                <Field label="DASK no">
+                  <Input className="h-9" value={form.daskNo} onChange={(e) => patch({ daskNo: e.target.value })} />
                 </Field>
               </>
             ) : null}
-            <Field label="Durum">
-              <SearchableSelect
-                allowCreate={false}
-                value={form.status === "aktif" ? "Aktif" : form.status === "iptal" ? "İptal" : "Zeyl"}
-                onChange={(label) =>
-                  patch({
-                    status: label === "İptal" ? "iptal" : label === "Zeyl" ? "zeyl" : "aktif",
-                  })
-                }
-                placeholder="Durum"
-                options={[
-                  { value: "aktif", label: "Aktif" },
-                  { value: "iptal", label: "İptal" },
-                  { value: "zeyl", label: "Zeyl" },
-                ]}
-              />
-            </Field>
+            {template === "cancel" || form.status === "iptal" ? (
+              <>
+                <Field label="İptal tarihi">
+                  <Input
+                    className="h-9"
+                    type="date"
+                    value={form.cancelDate}
+                    onChange={(e) => patch({ cancelDate: e.target.value, status: "iptal" })}
+                  />
+                </Field>
+                <Field label="İptal nedeni" className="md:col-span-2">
+                  <Input
+                    className="h-9"
+                    value={form.cancelReason}
+                    onChange={(e) => patch({ cancelReason: e.target.value, status: "iptal" })}
+                    placeholder="Müşteri talebi, satış iptali..."
+                  />
+                </Field>
+              </>
+            ) : (
+              <Field label="Durum">
+                <SearchableSelect
+                  allowCreate={false}
+                  value={form.status === "zeyl" ? "Zeyl" : "Aktif"}
+                  onChange={(label) =>
+                    patch({
+                      status: label === "İptal" ? "iptal" : label === "Zeyl" ? "zeyl" : "aktif",
+                    })
+                  }
+                  placeholder="Durum"
+                  options={[
+                    { value: "aktif", label: "Aktif" },
+                    { value: "iptal", label: "İptal" },
+                    { value: "zeyl", label: "Zeyl" },
+                  ]}
+                />
+              </Field>
+            )}
           </div>
         </section>
 
         <section className="space-y-4 rounded-xl border bg-card p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-sm font-semibold">Primler</h2>
+            <div>
+              <h2 className="text-sm font-semibold">Primler</h2>
+              <p className="text-muted-foreground text-xs">
+                {template === "cancel"
+                  ? "İptal primleri genelde eksi yazılır. Komisyon da net prim üzerinden hesaplanır."
+                  : `Komisyon net primin ${formatPercent(defaultRate)}’i. Oranı Ayarlar’dan değiştirebilirsiniz.`}
+              </p>
+            </div>
             <label className="flex items-center gap-2 text-sm">
-              <Switch
-                checked={form.fromGross}
-                onCheckedChange={(fromGross) => patch({ fromGross })}
-              />
+              <Switch checked={form.fromGross} onCheckedChange={(fromGross) => patch({ fromGross })} />
               Brütten net hesapla
             </label>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
             {form.fromGross ? (
               <Field label="Brüt prim">
-                <MoneyInput
-                  value={form.grossOverride}
-                  onChange={(grossOverride) => patch({ grossOverride })}
-                />
+                <MoneyInput value={form.grossOverride} onChange={(grossOverride) => patch({ grossOverride })} />
               </Field>
             ) : (
               <Field label="Net prim">
-                <MoneyInput
-                  value={form.netPremium}
-                  onChange={(netPremium) => patch({ netPremium })}
-                />
+                <MoneyInput value={form.netPremium} onChange={(netPremium) => patch({ netPremium })} />
               </Field>
             )}
             {profile === "trafik" ? (
@@ -436,52 +532,55 @@ export function PolicyForm({
                   value={form.compulsoryNet}
                   onChange={(compulsoryNet) => patch({ compulsoryNet })}
                 />
-                <p className="text-muted-foreground mt-1 text-xs">
-                  Boş bırakılırsa toplam net prim kullanılır. Ek teminat varsa yalnızca zorunlu trafik netini girin.
-                </p>
               </Field>
             ) : null}
             {profile === "konut" ? (
               <Field label="Yangın primi (YSV matrahı)">
-                <MoneyInput
-                  value={form.firePremium}
-                  onChange={(firePremium) => patch({ firePremium })}
-                />
-                <p className="text-muted-foreground mt-1 text-xs">
-                  Y.S.V. yangın priminin %10’udur. Bilinmiyorsa boş bırakın.
-                </p>
+                <MoneyInput value={form.firePremium} onChange={(firePremium) => patch({ firePremium })} />
               </Field>
             ) : null}
-            <Field label={`Komisyon (önerilen ${Math.round(defaultRate * 100)}%)`}>
-              <MoneyInput
-                value={form.commission}
-                onChange={(commission) => patch({ commission })}
-              />
+            <Field label={`Toplam komisyon (önerilen ${Math.round(defaultRate * 100)}%)`}>
+              <MoneyInput value={form.commission} onChange={(commission) => patch({ commission })} />
               <p className="text-muted-foreground mt-1 text-xs">
                 Boşsa {formatTRY(suggestedCommission(breakdown.netPremium, defaultRate))} yazılır.
               </p>
             </Field>
           </div>
           <Field label="Not">
-            <Textarea
-              value={form.notes}
-              onChange={(e) => patch({ notes: e.target.value })}
-              rows={3}
-            />
+            <Textarea value={form.notes} onChange={(e) => patch({ notes: e.target.value })} rows={3} />
           </Field>
         </section>
       </div>
 
       <aside className="space-y-4 xl:sticky xl:top-6 xl:self-start">
         <PremiumBreakdownCard breakdown={breakdown} />
-        <div className="rounded-xl border bg-card px-4 py-3 text-sm">
+        <div className="space-y-2 rounded-xl border bg-card px-4 py-3 text-sm">
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Komisyon</span>
-            <span className="font-medium tabular-nums">{formatTRY(commission)}</span>
+            <span className="text-muted-foreground">Toplam komisyon</span>
+            <span className="font-medium tabular-nums">{formatTRY(split.total)}</span>
           </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">
+              Tali payı {split.tali ? formatPercent(merged.taliShareRate) : ""}
+            </span>
+            <span className="tabular-nums">{formatTRY(split.producerCommission)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Acente payı</span>
+            <span className="tabular-nums">{formatTRY(split.agencyCommission)}</span>
+          </div>
+          {!form.producer ? (
+            <p className="text-muted-foreground pt-1 text-xs">
+              Tali seçilmezse komisyonun tamamı acentede kalır.
+            </p>
+          ) : null}
         </div>
         <Button type="submit" className="h-10 w-full" disabled={saving}>
-          {policy ? "Değişiklikleri kaydet" : "Poliçeyi kaydet"}
+          {policy
+            ? "Değişiklikleri kaydet"
+            : template === "cancel"
+              ? "İptal poliçesini kaydet"
+              : "Poliçeyi kaydet"}
         </Button>
       </aside>
     </form>

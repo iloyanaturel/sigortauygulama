@@ -12,8 +12,10 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { parseWorkbook } from "@/lib/excel";
+import { applyCommissionSplit } from "@/lib/commission";
 import { getDb, upsertBranch, upsertCatalogName } from "@/lib/store";
 import { defaultCommissionForBranch, profileForBranch } from "@/lib/catalog";
+import { mergeSettings } from "@/lib/settings";
 import { formatTRY } from "@/lib/money";
 
 export function ImportDialog({ triggerLabel = "Excel içe aktar" }: { triggerLabel?: string }) {
@@ -33,6 +35,7 @@ export function ImportDialog({ triggerLabel = "Excel içe aktar" }: { triggerLab
         return;
       }
       const db = getDb();
+      const settings = mergeSettings(await db.settings.get("app"));
       const existing = await db.policies.toArray();
       const keys = new Set(
         existing.map((p) => `${p.policyNo}|${p.partaj}|${p.netPremium}`),
@@ -45,7 +48,7 @@ export function ImportDialog({ triggerLabel = "Excel içe aktar" }: { triggerLab
           dupes += 1;
           continue;
         }
-        await db.policies.put(row.policy);
+        await db.policies.put(applyCommissionSplit(row.policy, settings));
         await upsertCatalogName("partajlar", row.policy.partaj);
         await upsertCatalogName("producers", row.policy.producer);
         await upsertBranch(

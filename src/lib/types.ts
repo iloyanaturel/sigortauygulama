@@ -50,10 +50,15 @@ export type Policy = {
   grossPremium: number;
   commission: number;
   commissionRate: number;
+  producerCommission: number;
+  agencyCommission: number;
   producer: string;
   notes: string;
   status: PolicyStatus;
+  cancelDate: string;
+  cancelReason: string;
   sourceSheet?: string;
+  sourceFile?: string;
 };
 
 export type CatalogItem = {
@@ -71,4 +76,16 @@ export type BranchItem = CatalogItem & {
 export type AppSettings = {
   pinHash?: string;
   agencyName: string;
+  taliShareRate: number;
+  taliProducerNames: string[];
+  agencyProducerNames: string[];
+};
+
+export type ReportFilters = {
+  from: string;
+  to: string;
+  partaj: string;
+  branch: string;
+  producer: string;
+  status: "all" | PolicyStatus;
 };

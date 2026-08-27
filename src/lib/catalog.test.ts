@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeBranch, normalizePartaj, normalizeProducer, profileForBranch } from "@/lib/catalog";
+import { normalizeBranch, normalizePartaj, normalizeProducer, profileForBranch, defaultCommissionForBranch } from "@/lib/catalog";
 import { parseTRNumber } from "@/lib/money";
 import { parseWorkbook } from "@/lib/excel";
 import * as XLSX from "xlsx";
@@ -23,6 +23,9 @@ describe("katalog normalizasyonu", () => {
     expect(profileForBranch("Trafik")).toBe("trafik");
     expect(profileForBranch("Konut")).toBe("konut");
     expect(profileForBranch("DASK")).toBe("exempt");
+    expect(defaultCommissionForBranch("Konut")).toBe(0.2);
+    expect(defaultCommissionForBranch("TSS")).toBe(0.2);
+    expect(defaultCommissionForBranch("Seyahat Sağlık")).toBe(0.1);
   });
 
   it("tali kişileri sadeleştirir", () => {

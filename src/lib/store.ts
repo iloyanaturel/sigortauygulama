@@ -1,6 +1,7 @@
 import Dexie, { type EntityTable } from "dexie";
 import { DEFAULT_BRANCHES, DEFAULT_PARTAJS, DEFAULT_PRODUCERS } from "@/lib/catalog";
 import { uid } from "@/lib/id";
+import { DEFAULT_SETTINGS } from "@/lib/settings";
 import { foldTurkish } from "@/lib/text";
 import type { AppSettings, BranchItem, CatalogItem, Policy } from "@/lib/types";
 
@@ -21,7 +22,44 @@ export class SigortaDB extends Dexie {
       producers: "id, name, active",
       settings: "id",
     });
+    this.version(2)
+      .stores({
+        policies:
+          "id, issueDate, startDate, endDate, customerName, partaj, branch, policyNo, status, producer, nationalId, plate, cancelDate",
+        partajlar: "id, name, active",
+        branches: "id, name, profile, active",
+        producers: "id, name, active",
+        settings: "id",
+      })
+      .upgrade(async (tx) => {
+        const branches = await tx.table("branches").toArray();
+        for (const branch of branches as BranchItem[]) {
+          const next = migratedBranchRate(branch);
+          if (next !== branch.defaultCommissionRate) {
+            await tx.table("branches").update(branch.id, { defaultCommissionRate: next });
+          }
+        }
+        const current = (await tx.table("settings").get("app")) as (AppSettings & { id: string }) | undefined;
+        await tx.table("settings").put({
+          id: "app",
+          agencyName: current?.agencyName || DEFAULT_SETTINGS.agencyName,
+          pinHash: current?.pinHash,
+          taliShareRate: current?.taliShareRate ?? DEFAULT_SETTINGS.taliShareRate,
+          taliProducerNames: current?.taliProducerNames ?? DEFAULT_SETTINGS.taliProducerNames,
+          agencyProducerNames: current?.agencyProducerNames ?? DEFAULT_SETTINGS.agencyProducerNames,
+        });
+      });
   }
+}
+
+function migratedBranchRate(branch: Pick<BranchItem, "name" | "defaultCommissionRate">): number {
+  const folded = foldTurkish(branch.name);
+  if (folded === "KONUT" && (branch.defaultCommissionRate === 0.25 || branch.defaultCommissionRate === 0)) {
+    return 0.2;
+  }
+  if (folded === "TSS" && branch.defaultCommissionRate === 0) return 0.2;
+  if (folded === "SEYAHAT SAGLIK" && branch.defaultCommissionRate === 0) return 0.1;
+  return branch.defaultCommissionRate;
 }
 
 let _db: SigortaDB | null = null;
@@ -34,14 +72,43 @@ export function getDb(): SigortaDB {
 async function seedIfEmpty() {
   const db = getDb();
   const count = await db.partajlar.count();
-  if (count > 0) return;
+  if (count > 0) {
+    await ensureSettings();
+    await migrateLegacyRates();
+    return;
+  }
   await db.partajlar.bulkAdd(DEFAULT_PARTAJS.map((item) => ({ ...item, id: uid() })));
   await db.branches.bulkAdd(DEFAULT_BRANCHES.map((item) => ({ ...item, id: uid() })));
   await db.producers.bulkAdd(DEFAULT_PRODUCERS.map((item) => ({ ...item, id: uid() })));
+  await db.settings.put({ id: "app", ...DEFAULT_SETTINGS });
+}
+
+async function ensureSettings() {
+  const db = getDb();
+  const current = await db.settings.get("app");
+  if (!current) {
+    await db.settings.put({ id: "app", ...DEFAULT_SETTINGS });
+    return;
+  }
   await db.settings.put({
     id: "app",
-    agencyName: "Sigorta Takip",
+    agencyName: current.agencyName || DEFAULT_SETTINGS.agencyName,
+    pinHash: current.pinHash,
+    taliShareRate: current.taliShareRate ?? DEFAULT_SETTINGS.taliShareRate,
+    taliProducerNames: current.taliProducerNames ?? DEFAULT_SETTINGS.taliProducerNames,
+    agencyProducerNames: current.agencyProducerNames ?? DEFAULT_SETTINGS.agencyProducerNames,
   });
+}
+
+async function migrateLegacyRates() {
+  const db = getDb();
+  const branches = await db.branches.toArray();
+  for (const branch of branches) {
+    const next = migratedBranchRate(branch);
+    if (next !== branch.defaultCommissionRate) {
+      await db.branches.update(branch.id, { defaultCommissionRate: next });
+    }
+  }
 }
 
 let ready: Promise<void> | null = null;
@@ -87,5 +154,16 @@ export async function upsertBranch(name: string, profile: BranchItem["profile"],
     defaultCommissionRate: rate,
     usageCount: 1,
     active: true,
+  });
+}
+
+export async function saveSettings(patch: Partial<AppSettings>) {
+  const db = getDb();
+  const current = await db.settings.get("app");
+  await db.settings.put({
+    id: "app",
+    ...DEFAULT_SETTINGS,
+    ...current,
+    ...patch,
   });
 }

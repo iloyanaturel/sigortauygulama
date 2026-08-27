@@ -11,7 +11,7 @@ import { getDb } from "@/lib/store";
 export default function PolicyDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
-  const { partajlar, branches, producers, policies, ready } = useAppData();
+  const { partajlar, branches, producers, policies, settings, ready } = useAppData();
   const policy = policies.find((item) => item.id === params.id);
 
   if (!ready) {
@@ -51,6 +51,7 @@ export default function PolicyDetailPage() {
         partajlar={partajlar}
         branches={branches}
         producers={producers}
+        settings={settings}
       />
     </div>
   );

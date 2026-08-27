@@ -7,18 +7,21 @@ import { Button } from "@/components/ui/button";
 import { useAppData } from "@/hooks/use-app-data";
 import { formatTRY } from "@/lib/money";
 import { groupBy, sumPolicies } from "@/lib/reports";
-import { monthKey } from "@/lib/dates";
-import { todayISO } from "@/lib/dates";
+import { monthKey, todayISO } from "@/lib/dates";
 
 export default function DashboardPage() {
   const { ready, policies } = useAppData();
   const thisMonth = monthKey(todayISO());
   const monthPolicies = policies.filter((p) => monthKey(p.issueDate) === thisMonth && p.status === "aktif");
   const active = policies.filter((p) => p.status === "aktif");
+  const cancelled = policies.filter((p) => p.status === "iptal");
   const totals = sumPolicies(monthPolicies);
   const allTotals = sumPolicies(active);
   const byPartaj = groupBy(monthPolicies, (p) => p.partaj).slice(0, 6);
-  const byBranch = groupBy(monthPolicies, (p) => p.branch);
+  const byTali = groupBy(
+    monthPolicies.filter((p) => p.producer),
+    (p) => p.producer,
+  );
   const recent = policies.slice(0, 8);
 
   if (!ready) {
@@ -31,11 +34,14 @@ export default function DashboardPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">İş özeti</h1>
           <p className="text-muted-foreground text-sm">
-            Bu ay kesilen poliçeler, partaj toplamları ve prim dökümü.
+            PDF’den poliçe yükleyin, tali raporunu ayrı alın, iptalleri ayrı şablonda tutun.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <ImportDialog />
+          <Button variant="outline" asChild>
+            <Link href="/policeler/iptal">İptal poliçesi</Link>
+          </Button>
           <Button asChild>
             <Link href="/policeler/yeni">Yeni poliçe</Link>
           </Button>
@@ -46,13 +52,13 @@ export default function DashboardPage() {
         <div className="rounded-xl border border-dashed px-6 py-16 text-center">
           <p className="text-lg font-medium">Takibe başlayın</p>
           <p className="text-muted-foreground mx-auto mt-2 max-w-lg text-sm">
-            Excel defterinizi içe aktarın veya ilk poliçeyi girin. Yeni kayıtta partaj ve branş
-            seçilir; trafik, kasko ve konut kesintileri otomatik hesaplanır.
+            Poliçe PDF’ini yükleyin, Excel defterinizi aktarın veya ilk kaydı elle girin. Trafik, kasko,
+            konut, DASK ve TSS kesintileri otomatik hesaplanır.
           </p>
-          <div className="mt-6 flex justify-center gap-2">
+          <div className="mt-6 flex flex-wrap justify-center gap-2">
             <ImportDialog triggerLabel="Excel’i yükle" />
             <Button asChild>
-              <Link href="/policeler/yeni">İlk poliçeyi gir</Link>
+              <Link href="/policeler/yeni">PDF veya yeni poliçe</Link>
             </Button>
           </div>
         </div>
@@ -62,13 +68,13 @@ export default function DashboardPage() {
             <Kpi title="Bu ay poliçe" value={String(totals.count)} />
             <Kpi title="Bu ay net prim" value={formatTRY(totals.netPremium)} />
             <Kpi title="Bu ay brüt prim" value={formatTRY(totals.grossPremium)} />
-            <Kpi title="Bu ay komisyon" value={formatTRY(totals.commission)} />
+            <Kpi title="Bu ay toplam komisyon" value={formatTRY(totals.commission)} />
           </div>
-          <div className="grid gap-3 md:grid-cols-4">
-            <Kpi title="G.H.K. payı" value={formatTRY(totals.ghk)} subtle />
-            <Kpi title="Gider vergisi" value={formatTRY(totals.giderVergisi)} subtle />
-            <Kpi title="T.H.G. fonu" value={formatTRY(totals.thgf)} subtle />
-            <Kpi title="Y.S.V." value={formatTRY(totals.ysv)} subtle />
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <Kpi title="Tali komisyonu" value={formatTRY(totals.producerCommission)} subtle />
+            <Kpi title="Acente komisyonu" value={formatTRY(totals.agencyCommission)} subtle />
+            <Kpi title="Aktif poliçe" value={String(active.length)} subtle />
+            <Kpi title="İptal poliçe" value={String(cancelled.length)} subtle />
           </div>
           <p className="text-muted-foreground text-xs">
             Tüm dönem aktif net {formatTRY(allTotals.netPremium)} · brüt {formatTRY(allTotals.grossPremium)} ·
@@ -76,6 +82,25 @@ export default function DashboardPage() {
           </p>
 
           <div className="grid gap-4 lg:grid-cols-2">
+            <Panel title="Bu ay tali toplamları">
+              {byTali.length === 0 ? (
+                <Empty />
+              ) : (
+                byTali.map((row) => (
+                  <Link
+                    key={row.key}
+                    href="/raporlar"
+                    className="flex items-center justify-between gap-3 py-2 text-sm hover:underline"
+                  >
+                    <span>
+                      {row.key}{" "}
+                      <span className="text-muted-foreground">({row.totals.count})</span>
+                    </span>
+                    <span className="tabular-nums">{formatTRY(row.totals.producerCommission)}</span>
+                  </Link>
+                ))
+              )}
+            </Panel>
             <Panel title="Bu ay partaj toplamları">
               {byPartaj.length === 0 ? (
                 <Empty />
@@ -87,21 +112,6 @@ export default function DashboardPage() {
                       <span className="text-muted-foreground">({row.totals.count})</span>
                     </span>
                     <span className="tabular-nums">{formatTRY(row.totals.netPremium)}</span>
-                  </div>
-                ))
-              )}
-            </Panel>
-            <Panel title="Bu ay branş dağılımı">
-              {byBranch.length === 0 ? (
-                <Empty />
-              ) : (
-                byBranch.map((row) => (
-                  <div key={row.key} className="flex items-center justify-between gap-3 py-2 text-sm">
-                    <span>
-                      {row.key}{" "}
-                      <span className="text-muted-foreground">({row.totals.count})</span>
-                    </span>
-                    <span className="tabular-nums">{formatTRY(row.totals.grossPremium)}</span>
                   </div>
                 ))
               )}

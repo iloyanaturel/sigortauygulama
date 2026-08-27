@@ -3,6 +3,8 @@
 import { useLiveQuery } from "dexie-react-hooks";
 import { useEffect, useState } from "react";
 import { ensureSeeded, getDb } from "@/lib/store";
+import { applyCommissionSplit } from "@/lib/commission";
+import { mergeSettings } from "@/lib/settings";
 import type { BranchItem, CatalogItem } from "@/lib/types";
 
 export function useAppData() {
@@ -12,7 +14,7 @@ export function useAppData() {
     ensureSeeded().then(() => setReady(true));
   }, []);
 
-  const policies =
+  const rawPolicies =
     useLiveQuery(
       () => (ready ? getDb().policies.orderBy("issueDate").reverse().toArray() : []),
       [ready],
@@ -23,10 +25,31 @@ export function useAppData() {
     useLiveQuery(() => (ready ? getDb().branches.toArray() : []), [ready]) ?? [];
   const producers =
     useLiveQuery(() => (ready ? getDb().producers.toArray() : []), [ready]) ?? [];
+  const rawSettings = useLiveQuery(() => (ready ? getDb().settings.get("app") : undefined), [ready]);
+  const settings = mergeSettings(rawSettings);
+  const policies = rawPolicies.map((policy) =>
+    policy.producerCommission == null || policy.agencyCommission == null
+      ? applyCommissionSplit(
+          {
+            ...policy,
+            producerCommission: policy.producerCommission ?? 0,
+            agencyCommission: policy.agencyCommission ?? 0,
+            cancelDate: policy.cancelDate ?? "",
+            cancelReason: policy.cancelReason ?? "",
+          },
+          settings,
+        )
+      : {
+          ...policy,
+          cancelDate: policy.cancelDate ?? "",
+          cancelReason: policy.cancelReason ?? "",
+        },
+  );
 
   return {
     ready,
     policies,
+    settings,
     partajlar: partajlar.filter((p) => p.active).sort(sortByUsage),
     branches: branches.filter((b) => b.active).sort(sortByUsage),
     producers: producers.filter((p) => p.active).sort(sortByUsage),

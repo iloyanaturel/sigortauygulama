@@ -14,8 +14,16 @@ export type PremiumInput = {
   compulsoryNet?: number | null;
   firePremium?: number | null;
   ysvAmount?: number | null;
+  giderVergisiAmount?: number | null;
+  ghkAmount?: number | null;
+  thgfAmount?: number | null;
+  grossAmount?: number | null;
   rates?: Partial<typeof RATES>;
 };
+
+function optionalAmount(value: number | null | undefined): number | null {
+  return value === null || value === undefined ? null : round2(value);
+}
 
 function line(
   code: PremiumLine["code"],
@@ -50,8 +58,8 @@ export function calculatePremium(input: PremiumInput): PremiumBreakdown {
   }
 
   if (profile === "kasko" || profile === "custom") {
-    const giderVergisi = round2(net * rates.giderVergisi);
-    const gross = round2(net + giderVergisi);
+    const giderVergisi = optionalAmount(input.giderVergisiAmount) ?? round2(net * rates.giderVergisi);
+    const gross = optionalAmount(input.grossAmount) ?? round2(net + giderVergisi);
     return {
       netPremium: net,
       compulsoryNet: net,
@@ -72,12 +80,12 @@ export function calculatePremium(input: PremiumInput): PremiumBreakdown {
 
   if (profile === "konut") {
     const fire = round2(Number(input.firePremium) || 0);
-    const giderVergisi = round2(net * rates.giderVergisi);
+    const giderVergisi = optionalAmount(input.giderVergisiAmount) ?? round2(net * rates.giderVergisi);
     const ysv =
       input.ysvAmount !== null && input.ysvAmount !== undefined
         ? round2(input.ysvAmount)
         : round2(fire * rates.ysv);
-    const gross = round2(net + giderVergisi + ysv);
+    const gross = optionalAmount(input.grossAmount) ?? round2(net + giderVergisi + ysv);
     const lines: PremiumLine[] = [
       line("net", "Net prim", net, null),
       line("giderVergisi", "Gider vergisi", giderVergisi, rates.giderVergisi),
@@ -102,10 +110,10 @@ export function calculatePremium(input: PremiumInput): PremiumBreakdown {
     input.compulsoryNet !== null && input.compulsoryNet !== undefined
       ? round2(input.compulsoryNet)
       : net;
-  const ghk = round2(compulsory * rates.ghk);
-  const thgf = round2(compulsory * rates.thgf);
-  const giderVergisi = round2(net * rates.giderVergisi);
-  const gross = round2(net + ghk + thgf + giderVergisi);
+  const ghk = optionalAmount(input.ghkAmount) ?? round2(compulsory * rates.ghk);
+  const thgf = optionalAmount(input.thgfAmount) ?? round2(compulsory * rates.thgf);
+  const giderVergisi = optionalAmount(input.giderVergisiAmount) ?? round2(net * rates.giderVergisi);
+  const gross = optionalAmount(input.grossAmount) ?? round2(net + ghk + thgf + giderVergisi);
 
   return {
     netPremium: net,

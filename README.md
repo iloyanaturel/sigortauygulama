@@ -1,18 +1,22 @@
 # Sigorta Takip
 
-Kesilen poliçelerin partaj, branş, prim, vergi ve fon takibi. Excel defterinin yerini alan, Vercel’de yayınlanmaya hazır Next.js uygulaması.
+Kesilen poliçelerin partaj, branş, prim, vergi, komisyon ve tali takibi. Excel defterinin yerini alan, Vercel’de yayınlanmaya hazır Next.js uygulaması.
 
 ## Ne işe yarar?
 
+- **PDF’den poliçe:** Trafik, kasko, konut, DASK ve TSS poliçe PDF’ini yükleyin; müşteri, poliçe no, vade ve prim satırları otomatik dolar.
 - Yeni poliçede **partaj** ve **branş adı** seçilir (listede yoksa anında eklenir).
 - Branşa göre prim dökümü otomatik hesaplanır:
   - **Trafik:** G.H.K. payı %2, T.H.G. fonu %5, gider vergisi %5. Ek teminat varsa GHK/THGF yalnızca ZMSS neti üzerinden alınır.
   - **Kasko / İMM / yeşil kart:** gider vergisi %5.
-  - **Konut:** gider vergisi %5 + Y.S.V. (yangın priminin %10’u).
+  - **Konut:** gider vergisi %5 + Y.S.V. (yangın priminin %10’u). PDF’deki basılı GV/YSV varsa o tutar korunur.
   - **DASK / TSS / seyahat:** net = brüt.
-- Raporlarda partaj, branş, tali ve ay kırılımında net, vergi, fon, brüt ve komisyon toplamları.
+- **Komisyon** net prim üzerinden, Ayarlar’dan değiştirilebilir:
+  - Trafik %10, kasko %15, konut %20, TSS %20, DASK %10, seyahat sağlık %10.
+  - Tali (varsayılan: Tamer Dinç, Şenel Yıldırım) toplam komisyonun %50’sini alır; kalan acentede kalır.
+- **Raporlar** tali, partaj, branş, tarih ve durumu birbirinden bağımsız süzer. Tek tali seçerek yalnız o kişinin raporunu alabilirsiniz.
+- **İptal poliçeleri** ayrı form ve Excel şablonuyla girilir; listede Aktif / İptal sekmeleri vardır.
 - Mevcut `KESİLEN POLİÇELERİN TÜMÜ` Excel dosyası içe aktarılır; yedek Excel olarak dışa aktarılır.
-- Yenileme ekranı vadesi yaklaşan poliçeleri listeler.
 
 Veriler tarayıcıdaki IndexedDB’de tutulur (T.C. ve müşteri bilgileri GitHub’a yazılmaz). Vercel’e aldıktan sonra Excel’i bir kez yüklemeniz yeterlidir; yedek için Ayarlar → Excel yedek al.
 
@@ -33,7 +37,7 @@ Tarayıcıda [http://localhost:3000](http://localhost:3000) açılır.
 3. Framework: Next.js. Build `npm run build`, çıktı Next varsayılanıdır.
 4. Deploy. Ortam değişkeni gerekmez.
 
-İlk açılışta **Excel’i yükle** ile 2025–2026 defterinizi aktarın, ardından yeni işleri siteden girin.
+İlk açılışta **Excel’i yükle** ile 2025–2026 defterinizi aktarın, ardından yeni işleri siteden veya PDF’den girin.
 
 ## Prim örnekleri
 
@@ -48,3 +52,5 @@ Trafik, ZMSS neti 5.199 TL ve toplam net 5.804,81 TL:
 | Brüt prim | 6.458,98 |
 
 Kasko net 15.340,66 TL → gider vergisi 767,03 TL → brüt 16.107,69 TL.
+
+TSS / DASK: net = brüt. TSS komisyonu netin %20’si, DASK %10’u.

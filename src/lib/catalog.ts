@@ -39,11 +39,11 @@ export const DEFAULT_BRANCHES: Array<Omit<BranchItem, "id">> = [
   { name: "Mini Kasko", profile: "kasko", defaultCommissionRate: 0.1, usageCount: 0, active: true },
   { name: "Kaskonomiq", profile: "kasko", defaultCommissionRate: 0.05, usageCount: 0, active: true },
   { name: "DASK", profile: "exempt", defaultCommissionRate: 0.1, usageCount: 0, active: true },
-  { name: "Konut", profile: "konut", defaultCommissionRate: 0.25, usageCount: 0, active: true },
+  { name: "Konut", profile: "konut", defaultCommissionRate: 0.2, usageCount: 0, active: true },
   { name: "İMM", profile: "kasko", defaultCommissionRate: 0.1, usageCount: 0, active: true },
   { name: "Yeşil Kart", profile: "kasko", defaultCommissionRate: 0.1, usageCount: 0, active: true },
-  { name: "TSS", profile: "exempt", defaultCommissionRate: 0, usageCount: 0, active: true },
-  { name: "Seyahat Sağlık", profile: "exempt", defaultCommissionRate: 0, usageCount: 0, active: true },
+  { name: "TSS", profile: "exempt", defaultCommissionRate: 0.2, usageCount: 0, active: true },
+  { name: "Seyahat Sağlık", profile: "exempt", defaultCommissionRate: 0.1, usageCount: 0, active: true },
   { name: "Tekne", profile: "kasko", defaultCommissionRate: 0.15, usageCount: 0, active: true },
 ];
 
