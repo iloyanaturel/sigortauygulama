@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { ImportDialog } from "@/components/import-dialog";
 import { PolicyTable } from "@/components/policy-table";
 import { Button } from "@/components/ui/button";
@@ -13,8 +14,17 @@ import { formatTRY } from "@/lib/money";
 import { sumPolicies } from "@/lib/reports";
 
 export default function PoliciesPage() {
+  return (
+    <Suspense fallback={<p className="text-muted-foreground text-sm">Yükleniyor…</p>}>
+      <PoliciesPageInner />
+    </Suspense>
+  );
+}
+
+function PoliciesPageInner() {
   const { policies, partajlar, branches } = useAppData();
-  const [q, setQ] = useState("");
+  const searchParams = useSearchParams();
+  const [q, setQ] = useState(searchParams.get("q") ?? "");
   const [partaj, setPartaj] = useState("");
   const [branch, setBranch] = useState("");
   const [status, setStatus] = useState("Aktif");

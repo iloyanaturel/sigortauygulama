@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { formatTRDate } from "@/lib/dates";
 import { formatTRY } from "@/lib/money";
 import type { Policy } from "@/lib/types";
@@ -15,6 +15,8 @@ import {
 } from "@/components/ui/table";
 
 export function PolicyTable({ policies }: { policies: Policy[] }) {
+  const router = useRouter();
+
   if (policies.length === 0) {
     return (
       <p className="text-muted-foreground rounded-xl border px-4 py-10 text-center text-sm">
@@ -40,12 +42,14 @@ export function PolicyTable({ policies }: { policies: Policy[] }) {
         </TableHeader>
         <TableBody>
           {policies.map((policy) => (
-            <TableRow key={policy.id}>
+            <TableRow
+              key={policy.id}
+              className="cursor-pointer"
+              onClick={() => router.push(`/policeler/${policy.id}`)}
+            >
               <TableCell className="whitespace-nowrap">{formatTRDate(policy.issueDate)}</TableCell>
               <TableCell>
-                <Link href={`/policeler/${policy.id}`} className="font-medium hover:underline">
-                  {policy.customerName}
-                </Link>
+                <div className="font-medium">{policy.customerName}</div>
                 <div className="text-muted-foreground text-xs">
                   {policy.policyNo || policy.plate || "—"}
                 </div>
