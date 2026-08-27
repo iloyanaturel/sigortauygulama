@@ -42,7 +42,10 @@ export class SigortaDB extends Dexie {
         const current = (await tx.table("settings").get("app")) as (AppSettings & { id: string }) | undefined;
         await tx.table("settings").put({
           id: "app",
-          agencyName: current?.agencyName || DEFAULT_SETTINGS.agencyName,
+          agencyName:
+            !current?.agencyName || current.agencyName === "Sigorta Takip"
+              ? DEFAULT_SETTINGS.agencyName
+              : current.agencyName,
           pinHash: current?.pinHash,
           taliShareRate: current?.taliShareRate ?? DEFAULT_SETTINGS.taliShareRate,
           taliProducerNames: current?.taliProducerNames ?? DEFAULT_SETTINGS.taliProducerNames,
@@ -92,7 +95,10 @@ async function ensureSettings() {
   }
   await db.settings.put({
     id: "app",
-    agencyName: current.agencyName || DEFAULT_SETTINGS.agencyName,
+    agencyName:
+      !current.agencyName || current.agencyName === "Sigorta Takip"
+        ? DEFAULT_SETTINGS.agencyName
+        : current.agencyName,
     pinHash: current.pinHash,
     taliShareRate: current.taliShareRate ?? DEFAULT_SETTINGS.taliShareRate,
     taliProducerNames: current.taliProducerNames ?? DEFAULT_SETTINGS.taliProducerNames,

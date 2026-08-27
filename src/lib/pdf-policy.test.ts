@@ -27,6 +27,7 @@ describe("PDF poliçe okuma", () => {
     expect(parsed.issueDate).toBe("2026-08-24");
     expect(parsed.startDate).toBe("2026-08-24");
     expect(parsed.endDate).toBe("2027-08-24");
+    expect(parsed.phone).toBe("");
   });
 
   it("trafik poliçesinden GHK, THGF ve brüt primi okur", () => {

@@ -239,10 +239,9 @@ function extractBirthDate(text: string): string {
 }
 
 function extractPhone(text: string): string {
-  const match = text.match(/(?:Cep Telefonu|TELEFON NO)\s*:?\s*(\(?\d{3}\)?[\s-]?\d{2,3}[\s-]?\d{2}[\s-]?\d{2})/i);
-  const raw = match?.[1] ?? "";
-  if (raw.includes("*")) return "";
-  return raw;
+  const cep = text.match(/Cep Telefonu\s*:?\s*(\(?0?\d{3}\)?[\s.-]?\d{2,3}[\s.-]?\d{2}[\s.-]?\d{2})/i);
+  if (cep?.[1] && !cep[1].includes("*")) return cep[1];
+  return "";
 }
 
 export function parsePolicyFromText(rawText: string): ParsedPolicyDraft {
