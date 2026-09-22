@@ -4,7 +4,9 @@ Kesilen poliçelerin partaj, branş, prim, vergi, komisyon ve tali takibi. Excel
 
 ## Ne işe yarar?
 
-- **PDF / görselden poliçe:** Trafik, kasko, konut, DASK ve TSS PDF’leri ile **noter satış sözleşmesi** JPEG/PNG/WebP görselleri yüklenince müşteri, plaka ve tarihler otomatik dolar. İptalde satıcı + plaka; yeni poliçede alıcı + plaka kullanılır.
+- **PDF / görselden poliçe:** Trafik, kasko, konut, DASK ve TSS PDF’leri ile **noter satış** ve **ruhsat** JPEG/PNG görselleri yüklenince müşteri, plaka, adres, prim ve tarihler otomatik dolar. İptalde satıcı + plaka; yeni poliçede alıcı / sigortalı kullanılır.
+- **Müşteri kartı:** Ruhsattan veya elle kayıt açılır. Poliçe kaydedilince aynı kişi TCKN / plaka / ad ile eşleşir veya yeni kart oluşur.
+- **Katalog:** Sigorta şirketi / partaj, tali ve branş eklenir. Tali hakediş oranı kişi bazında değiştirilir.
 - Yeni poliçede **partaj** ve **branş adı** seçilir (listede yoksa anında eklenir).
 - Branşa göre prim dökümü otomatik hesaplanır:
   - **Trafik:** G.H.K. payı %2, T.H.G. fonu %5, gider vergisi %5. Ek teminat varsa GHK/THGF yalnızca ZMSS neti üzerinden alınır.

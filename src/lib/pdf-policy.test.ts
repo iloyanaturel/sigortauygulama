@@ -28,6 +28,9 @@ describe("PDF poliçe okuma", () => {
     expect(parsed.startDate).toBe("2026-08-24");
     expect(parsed.endDate).toBe("2027-08-24");
     expect(parsed.phone).toBe("");
+    expect(parsed.documentSerial).toMatch(/A-111\/100000623811902/);
+    expect(parsed.chassisNo).toMatch(/XP7YGCFS4SB707002/);
+    expect(parsed.address).toMatch(/RAMİ|RAMI/i);
   });
 
   it("trafik poliçesinden GHK, THGF ve brüt primi okur", () => {
@@ -44,6 +47,7 @@ describe("PDF poliçe okuma", () => {
     expect(parsed.grossPremium).toBe(6458.99);
     expect(parsed.startDate).toBe("2026-09-06");
     expect(parsed.endDate).toBe("2027-09-06");
+    expect(parsed.address).toMatch(/SOĞUKSU|SOGUUKSU|BEYKOZ/i);
   });
 
   it("konut poliçesinde yazdırılan GV ve YSV tutarlarını korur", () => {

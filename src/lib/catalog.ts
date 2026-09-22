@@ -48,15 +48,15 @@ export const DEFAULT_BRANCHES: Array<Omit<BranchItem, "id">> = [
 ];
 
 export const DEFAULT_PRODUCERS: Array<Omit<CatalogItem, "id">> = [
-  "NURDAN",
-  "TAMER DİNÇ",
-  "ŞENEL YILDIRIM",
-  "YİĞİTHAN",
-  "GÜNEŞ",
-  "KALIPSAN",
-  "HAKAN OYUNCAKCI",
-  "NURDAN THY",
-].map((name) => ({ name, usageCount: 0, active: true }));
+  { name: "NURDAN", usageCount: 0, active: true, role: "agency", taliShareRate: 0 },
+  { name: "TAMER DİNÇ", usageCount: 0, active: true, role: "tali", taliShareRate: 0.5 },
+  { name: "ŞENEL YILDIRIM", usageCount: 0, active: true, role: "tali", taliShareRate: 0.5 },
+  { name: "YİĞİTHAN", usageCount: 0, active: true, role: "other", taliShareRate: 0 },
+  { name: "GÜNEŞ", usageCount: 0, active: true, role: "other", taliShareRate: 0 },
+  { name: "KALIPSAN", usageCount: 0, active: true, role: "other", taliShareRate: 0 },
+  { name: "HAKAN OYUNCAKCI", usageCount: 0, active: true, role: "other", taliShareRate: 0 },
+  { name: "NURDAN THY", usageCount: 0, active: true, role: "other", taliShareRate: 0 },
+];
 
 const PARTAJ_ALIASES: Record<string, string> = {
   QUICK: "QUICK",

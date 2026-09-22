@@ -1,7 +1,9 @@
 import { parsePolicyFromText, type ParsedPolicyDraft } from "@/lib/pdf-policy";
 import { isNotarySaleDocument, parseNotarySaleFromText } from "@/lib/notary-sale";
+import { isRuhsatDocument, parseRuhsatFromText } from "@/lib/ruhsat";
 
 export function parseDocumentFromText(text: string): ParsedPolicyDraft {
+  if (isRuhsatDocument(text)) return parseRuhsatFromText(text);
   if (isNotarySaleDocument(text)) return parseNotarySaleFromText(text);
   return parsePolicyFromText(text);
 }

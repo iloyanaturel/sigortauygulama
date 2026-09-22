@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { Toaster } from "@/components/ui/sonner";
-import { AppShell } from "@/components/app-shell";
+import { AppProviders } from "@/components/app-providers";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -27,15 +25,9 @@ export default function RootLayout({
   children: ReactNode;
 }>) {
   return (
-    <html
-      lang="tr"
-      className={`dark ${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
+    <html lang="tr" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
       <body className="bg-background text-foreground min-h-full">
-        <TooltipProvider>
-          <AppShell>{children}</AppShell>
-          <Toaster />
-        </TooltipProvider>
+        <AppProviders>{children}</AppProviders>
       </body>
     </html>
   );

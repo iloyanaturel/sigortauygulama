@@ -45,7 +45,7 @@ function PoliciesPageInner() {
   }, [policies, q, partaj, branch, producer, status]);
 
   const totals = sumPolicies(filtered);
-  const taliOptions = producers.filter((p) => isTaliProducer(p.name, settings));
+  const taliOptions = producers.filter((p) => isTaliProducer(p.name, settings, producers));
 
   return (
     <div className="space-y-4">

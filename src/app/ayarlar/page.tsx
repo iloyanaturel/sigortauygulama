@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { ImportDialog } from "@/components/import-dialog";
+import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAppData } from "@/hooks/use-app-data";
@@ -10,8 +12,6 @@ import { emptyPolicyTemplate, policiesToWorkbook } from "@/lib/excel";
 import { getDb, saveSettings } from "@/lib/store";
 import { RATES } from "@/lib/premiums";
 import { formatPercent } from "@/lib/money";
-import { isTaliProducer } from "@/lib/commission";
-import { foldTurkish } from "@/lib/text";
 
 function downloadBuffer(buf: ArrayBuffer, name: string) {
   const blob = new Blob([buf], {
@@ -26,28 +26,27 @@ function downloadBuffer(buf: ArrayBuffer, name: string) {
 }
 
 export default function SettingsPage() {
-  const { policies, partajlar, branches, producers, settings } = useAppData();
+  const { ready, policies, partajlar, branches, producers, settings } = useAppData();
   const [confirmText, setConfirmText] = useState("");
-  const [agencyName, setAgencyName] = useState(settings.agencyName);
-  const [taliShare, setTaliShare] = useState(String(Math.round(settings.taliShareRate * 100)));
+  const [agencyName, setAgencyName] = useState("");
+  const [taliShare, setTaliShare] = useState("50");
   const [rates, setRates] = useState<Record<string, string>>({});
-  const [taliChecked, setTaliChecked] = useState<Record<string, boolean>>({});
+  const hydrated = useRef(false);
 
   useEffect(() => {
+    if (!ready || hydrated.current) return;
+    hydrated.current = true;
     setAgencyName(settings.agencyName);
     setTaliShare(String(Math.round(settings.taliShareRate * 100)));
     setRates(
       Object.fromEntries(branches.map((b) => [b.id, String(Math.round(b.defaultCommissionRate * 1000) / 10)])),
     );
-    setTaliChecked(
-      Object.fromEntries(producers.map((p) => [p.id, isTaliProducer(p.name, settings)])),
-    );
-  }, [settings, branches, producers]);
+  }, [ready, settings.agencyName, settings.taliShareRate, branches]);
 
   async function save() {
     const share = Number(taliShare.replace(",", ".")) / 100;
     if (!Number.isFinite(share) || share < 0 || share > 1) {
-      toast.error("Tali payı 0–100 arasında olmalı.");
+      toast.error("Varsayılan tali payı 0–100 arasında olmalı.");
       return;
     }
     const db = getDb();
@@ -56,13 +55,13 @@ export default function SettingsPage() {
       if (!Number.isFinite(raw) || raw < 0 || raw > 100) continue;
       await db.branches.update(branch.id, { defaultCommissionRate: raw / 100 });
     }
-    const taliProducerNames = producers.filter((p) => taliChecked[p.id]).map((p) => p.name);
+    const taliProducerNames = producers.filter((p) => p.role === "tali").map((p) => p.name);
     await saveSettings({
       agencyName: agencyName.trim() || "Bolaman Sigorta",
       taliShareRate: share,
       taliProducerNames,
     });
-    toast.success("Ayarlar kaydedildi.");
+    toast.success("Ayarlar kaydedildi. Tali hakedişlerini Katalog’dan kişi bazında da değiştirebilirsiniz.");
   }
 
   async function wipe() {
@@ -71,18 +70,21 @@ export default function SettingsPage() {
       return;
     }
     await getDb().policies.clear();
-    toast.success("Tüm poliçeler silindi. Partaj ve branş listesi duruyor.");
+    toast.success("Tüm poliçeler silindi. Katalog duruyor.");
     setConfirmText("");
   }
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Ayarlar</h1>
-        <p className="text-muted-foreground text-sm">
-          Komisyon oranlarını ve tali payını buradan değiştirin. Veriler bu tarayıcıda saklanır.
-        </p>
-      </div>
+      <PageHeader
+        title="Ayarlar"
+        description="Acente adı, branş komisyon oranları ve yedekleme. Tali hakedişlerini Katalog’dan kişi kişi düzenleyin."
+        actions={
+          <Button variant="outline" asChild>
+            <Link href="/katalog">Katalogu aç</Link>
+          </Button>
+        }
+      />
 
       <section className="space-y-3 rounded-xl border bg-card p-4">
         <h2 className="text-sm font-semibold">Acente</h2>
@@ -118,36 +120,32 @@ export default function SettingsPage() {
 
       <section className="space-y-3 rounded-xl border bg-card p-4">
         <div>
-          <h2 className="text-sm font-semibold">Tali komisyonu</h2>
+          <h2 className="text-sm font-semibold">Tali hakediş oranı</h2>
           <p className="text-muted-foreground text-xs">
-            Seçilen talilere, branş komisyonunun bu kadarlık kısmı verilir. Kalanı acentede kalır.
+            Yeni tali için varsayılan pay. Kişi bazında oran için Katalog → Tali.
           </p>
         </div>
         <label className="flex max-w-xs items-center gap-2 text-sm">
-          <span>Tali payı</span>
+          <span>Varsayılan tali payı</span>
           <Input className="h-9 w-20" value={taliShare} onChange={(e) => setTaliShare(e.target.value)} />
           <span className="text-muted-foreground">%</span>
         </label>
-        <div className="grid gap-2 sm:grid-cols-2">
-          {producers.map((producer) => (
-            <label key={producer.id} className="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm">
-              <input
-                type="checkbox"
-                checked={Boolean(taliChecked[producer.id])}
-                onChange={(e) =>
-                  setTaliChecked((prev) => ({ ...prev, [producer.id]: e.target.checked }))
-                }
-              />
-              <span>
-                {producer.name}
-                {foldTurkish(producer.name) === "NURDAN" ? (
-                  <span className="text-muted-foreground"> · acente</span>
-                ) : null}
-              </span>
-            </label>
-          ))}
+        <ul className="text-sm">
+          {producers
+            .filter((p) => p.role === "tali")
+            .map((p) => (
+              <li key={p.id} className="flex justify-between border-b py-2">
+                <span>{p.name}</span>
+                <span className="tabular-nums">%{Math.round((p.taliShareRate ?? settings.taliShareRate) * 100)}</span>
+              </li>
+            ))}
+        </ul>
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={() => void save()}>Oranları kaydet</Button>
+          <Button variant="outline" asChild>
+            <Link href="/katalog">Tali oranını değiştir</Link>
+          </Button>
         </div>
-        <Button onClick={save}>Oranları kaydet</Button>
       </section>
 
       <section className="space-y-3 rounded-xl border bg-card p-4">
@@ -162,17 +160,13 @@ export default function SettingsPage() {
       </section>
 
       <section className="space-y-3 rounded-xl border bg-card p-4">
-        <h2 className="text-sm font-semibold">Katalog</h2>
+        <h2 className="text-sm font-semibold">Katalog özeti</h2>
         <p className="text-sm">
-          {partajlar.length} partaj · {branches.length} branş · {producers.length} kişi · {policies.length} poliçe
+          {partajlar.length} sigorta şirketi / partaj · {branches.length} branş · {producers.length} kişi · {policies.length} poliçe
         </p>
-        <div className="flex flex-wrap gap-2">
-          {partajlar.map((p) => (
-            <span key={p.id} className="rounded-full border px-2 py-1 text-xs">
-              {p.name}
-            </span>
-          ))}
-        </div>
+        <Button variant="outline" asChild>
+          <Link href="/katalog">Şirket, tali ve partaj ekle</Link>
+        </Button>
       </section>
 
       <section className="space-y-3 rounded-xl border bg-card p-4">
@@ -195,13 +189,8 @@ export default function SettingsPage() {
         <h2 className="text-sm font-semibold">Tehlikeli alan</h2>
         <p className="text-muted-foreground text-sm">Tüm poliçeleri silmek için aşağıya SİL yazın.</p>
         <div className="flex gap-2">
-          <Input
-            className="h-9 max-w-40"
-            value={confirmText}
-            onChange={(e) => setConfirmText(e.target.value)}
-            placeholder="SİL"
-          />
-          <Button variant="destructive" onClick={wipe}>
+          <Input className="h-9 max-w-40" value={confirmText} onChange={(e) => setConfirmText(e.target.value)} placeholder="SİL" />
+          <Button variant="destructive" onClick={() => void wipe()}>
             Poliçeleri sil
           </Button>
         </div>

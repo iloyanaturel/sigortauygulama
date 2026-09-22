@@ -5,7 +5,7 @@ import { compactSpaces, extractTurkishPlate, foldTurkish, titleName } from "@/li
 import type { PolicyStatus } from "@/lib/types";
 
 export type ParsedPolicyDraft = {
-  documentKind?: "policy" | "notary-sale";
+  documentKind?: "policy" | "notary-sale" | "ruhsat";
   branch: string;
   partaj: string;
   customerName: string;
@@ -19,6 +19,7 @@ export type ParsedPolicyDraft = {
   policyNo: string;
   plate: string;
   documentSerial: string;
+  address?: string;
   addressCode: string;
   daskNo: string;
   issueDate: string;
@@ -119,6 +120,7 @@ function extractPremiums(text: string, branch: string) {
     labeledAmount(text, ["TOPLAM NET PRİM"], "before") ??
     labeledAmount(text, ["Poliçe Primi", "POLİÇE PRİMİ"], "after") ??
     labeledAmount(text, ["NET PRİM"], "after") ??
+    labeledAmount(text, ["Toplam Prim"], "after") ??
     (kaskoBlock ? parseTRNumber(kaskoBlock[1]) : null);
   const giderVergisi =
     labeledAmount(text, ["GİDER VERGİSİ"]) ?? (kaskoBlock ? parseTRNumber(kaskoBlock[2]) : null);
@@ -126,7 +128,7 @@ function extractPremiums(text: string, branch: string) {
   const thgf = labeledAmount(text, ["T.H.G. FONU", "THGF", "T.H.G FONU"]);
   const ysv = labeledAmount(text, ["Y.S.V.", "YSV"]);
   const grossPremium =
-    labeledAmount(text, ["ÖDENECEK TOPLAM PRİM", "TOPLAM BRÜT PRİM", "BRÜT PRİM"]) ??
+    labeledAmount(text, ["ÖDENECEK TOPLAM PRİM", "TOPLAM BRÜT PRİM", "BRÜT PRİM", "Toplam Brüt Prim"]) ??
     (kaskoBlock ? parseTRNumber(kaskoBlock[3]) : null) ??
     (branch === "DASK" || branch === "TSS" ? netPremium : null);
   const firePremium = ysv !== null && ysv > 0 ? parseTRNumber((ysv / 0.1).toFixed(2)) : null;
@@ -189,20 +191,30 @@ function extractName(text: string): string {
     /Adı Soyadı\/Unvanı\s*:?\s*([A-ZÇĞİÖŞÜÂÎÛa-zçğıöşüâîû ]{3,80})/i,
     /ADI\/ÜNVANI\s*:?\s*([A-ZÇĞİÖŞÜÂÎÛa-zçğıöşüâîû ]{3,80})/i,
     /ADI SOYADI\s*\/\s*ÜNVANI[\s:]*([A-ZÇĞİÖŞÜÂÎÛa-zçğıöşüâîû ]{3,80})/i,
+    /Sigortal[ıi]\s*:?\s*([A-ZÇĞİÖŞÜÂÎÛa-zçğıöşüâîû ]{5,80})/i,
   ];
-  for (const pattern of patterns) {
-    const matches = text.matchAll(new RegExp(pattern, "gi"));
-    for (const match of matches) {
-      const candidate = titleName(compactSpaces(match[1] ?? "").replace(/\s+Ad[ıi]$/i, ""));
-      const folded = foldTurkish(candidate);
-      if (!candidate || candidate.length < 5) continue;
-      if (folded.includes("SIGORTA") || folded.includes("ACENTE") || folded.includes("UNVANI") || folded.includes("ADRESI")) {
-        continue;
+  const haystacks = [insuredSlice(text), text];
+  for (const haystack of haystacks) {
+    for (const pattern of patterns) {
+      const matches = haystack.matchAll(new RegExp(pattern, "gi"));
+      for (const match of matches) {
+        const candidate = titleName(compactSpaces(match[1] ?? "").replace(/\s+Ad[ıi]$/i, ""));
+        const folded = foldTurkish(candidate);
+        if (!candidate || candidate.length < 5) continue;
+        if (
+          folded.includes("SIGORTA") ||
+          folded.includes("ACENTE") ||
+          folded.includes("UNVANI") ||
+          folded.includes("ADRESI") ||
+          folded.includes("SOZLESME")
+        ) {
+          continue;
+        }
+        if (folded === "NURDAN BOLAMAN" && !foldTurkish(text).includes("TAMAMLAYICI SAGLIK")) {
+          continue;
+        }
+        return candidate;
       }
-      if (folded === "NURDAN BOLAMAN" && !foldTurkish(text).includes("TAMAMLAYICI SAGLIK")) {
-        continue;
-      }
-      return candidate;
     }
   }
   return "";
@@ -238,8 +250,59 @@ function extractAddressCode(text: string): string {
   return ak?.[1] ?? "";
 }
 
+function labeledValue(text: string, labels: string[]): string {
+  for (const label of labels) {
+    const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, String.raw`\s*`);
+    const match = text.match(new RegExp(`${escaped}\\s*:?\\s*([^\\n]+)`, "i"));
+    const value = compactSpaces(match?.[1] ?? "");
+    if (value && foldTurkish(value) !== foldTurkish(label) && !/^[\-*]+$/.test(value)) return value;
+  }
+  return "";
+}
+
+function insuredSlice(text: string): string {
+  const folded = foldTurkish(text);
+  const start = folded.indexOf("SIGORTALI");
+  if (start < 0) return text.slice(0, 1800);
+  const endCandidates = ["SIGORTA TEMINAT", "MARKA", "RISK BILG", "PRIME KONUT", "GENISLETILMIS"];
+  let end = Math.min(text.length, start + 1400);
+  for (const label of endCandidates) {
+    const idx = folded.indexOf(label, start + 8);
+    if (idx > start && idx < end) end = idx;
+  }
+  return text.slice(start, end);
+}
+
+function extractAddress(text: string): string {
+  const slice = insuredSlice(text);
+  const match = slice.match(/ADRES[İI]\s*:?\s*([^\n]+(?:\n[^\n]{5,90}){0,3})/i);
+  const raw = compactSpaces((match?.[1] ?? "").replace(/\s+/g, " "));
+  const folded = foldTurkish(raw);
+  if (!raw || raw.length < 8) return "";
+  if (folded.includes("QUICK TOWER") || folded.includes("SOMPO SIGORTA") || folded.includes("ICERENKOY MAH. UMUT")) {
+    return "";
+  }
+  return raw.replace(/\s*ADRES[İI].*$/i, "").slice(0, 220);
+}
+
+function extractDocumentSerial(text: string): string {
+  return labeledValue(text, ["Poliçe Seri No", "POLİÇE SERİ NO", "Belge Seri No"]);
+}
+
+function extractChassis(text: string): string {
+  return labeledValue(text, ["Şasi No", "ŞASİ NO", "Sasi No"]).replace(/\s+/g, "");
+}
+
+function extractMotor(text: string): string {
+  return labeledValue(text, ["Motor No", "MOTOR NO"]).replace(/\s+/g, "");
+}
+
 function extractNationalId(text: string): string {
-  const full = text.match(/\b(\d{11})\b/);
+  const slice = insuredSlice(text);
+  const labeled = slice.match(/T\.?C\.?\s*K[İI]ML[İI]K\s*NO\s*:?\s*([0-9*]{5,14})/i);
+  const digits = (labeled?.[1] ?? "").replace(/\D/g, "");
+  if (digits.length === 11) return digits;
+  const full = slice.match(/\b([1-9]\d{10})\b/);
   return full?.[1] ?? "";
 }
 
@@ -248,7 +311,8 @@ function extractBirthDate(text: string): string {
 }
 
 function extractPhone(text: string): string {
-  const cep = text.match(/Cep Telefonu\s*:?\s*(\(?0?\d{3}\)?[\s.-]?\d{2,3}[\s.-]?\d{2}[\s.-]?\d{2})/i);
+  const slice = insuredSlice(text);
+  const cep = slice.match(/(?:Cep Telefonu|GSM)\s*:?\s*(\(?0?\d{3}\)?[\s.-]?\d{2,3}[\s.-]?\d{2}[\s.-]?\d{2})/i);
   if (cep?.[1] && !cep[1].includes("*")) return cep[1];
   return "";
 }
@@ -263,9 +327,13 @@ export function parsePolicyFromText(rawText: string): ParsedPolicyDraft {
   const customerName = extractName(text);
   const plate = extractPlate(text);
   const addressCode = extractAddressCode(text);
+  const address = extractAddress(text);
   const nationalId = extractNationalId(text);
   const birthDate = extractBirthDate(text);
   const phone = extractPhone(text);
+  const documentSerial = extractDocumentSerial(text);
+  const chassisNo = extractChassis(text);
+  const motorNo = extractMotor(text);
   const status: PolicyStatus = folded.includes("IPTAL POLICE") || folded.includes("IPTALNAME") ? "iptal" : "aktif";
   const { issueDate, startDate, endDate } = extractDates(text, branch);
   const { netPremium, giderVergisi, ghk, thgf, ysv, grossPremium, firePremium, compulsoryNet } =
@@ -286,7 +354,8 @@ export function parsePolicyFromText(rawText: string): ParsedPolicyDraft {
     birthDate,
     policyNo,
     plate,
-    documentSerial: "",
+    documentSerial,
+    address,
     addressCode,
     daskNo,
     issueDate,
@@ -300,6 +369,8 @@ export function parsePolicyFromText(rawText: string): ParsedPolicyDraft {
     ysv,
     firePremium,
     compulsoryNet,
+    chassisNo,
+    motorNo,
     status,
     notes: "",
     warnings,

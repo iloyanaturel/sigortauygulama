@@ -23,11 +23,12 @@ import { defaultEndDate, todayISO } from "@/lib/dates";
 import { uid } from "@/lib/id";
 import { formatPercent, formatTRY, round2 } from "@/lib/money";
 import { calculatePremium, netFromGross, suggestedCommission } from "@/lib/premiums";
-import { getDb, upsertBranch, upsertCatalogName } from "@/lib/store";
+import { getDb, upsertBranch, upsertCatalogName, upsertCustomerFromPolicy } from "@/lib/store";
 import { mergeSettings } from "@/lib/settings";
-import type { AppSettings, BranchItem, CatalogItem, Policy } from "@/lib/types";
+import type { AppSettings, BranchItem, CatalogItem, Customer, Policy } from "@/lib/types";
 import type { ParsedPolicyDraft } from "@/lib/pdf-policy";
 import { notaryPartyForMode } from "@/lib/notary-sale";
+import { matchCustomer } from "@/lib/customers";
 import { plateKey } from "@/lib/text";
 
 type FormState = {
@@ -38,11 +39,14 @@ type FormState = {
   nationalId: string;
   phone: string;
   birthDate: string;
+  address: string;
   partaj: string;
   branch: string;
   policyNo: string;
   plate: string;
   documentSerial: string;
+  chassisNo: string;
+  motorNo: string;
   addressCode: string;
   daskNo: string;
   netPremium: number | null;
@@ -60,6 +64,7 @@ type FormState = {
   printedGhk: number | null;
   printedThgf: number | null;
   printedYsv: number | null;
+  customerId: string;
 };
 
 function initialState(policy?: Policy, template: "new" | "cancel" = "new"): FormState {
@@ -73,11 +78,14 @@ function initialState(policy?: Policy, template: "new" | "cancel" = "new"): Form
       nationalId: "",
       phone: "",
       birthDate: "",
+      address: "",
       partaj: "",
       branch: template === "cancel" ? "Trafik" : "Trafik",
       policyNo: "",
       plate: "",
       documentSerial: "",
+      chassisNo: "",
+      motorNo: "",
       addressCode: "",
       daskNo: "",
       netPremium: null,
@@ -95,6 +103,7 @@ function initialState(policy?: Policy, template: "new" | "cancel" = "new"): Form
       printedGhk: null,
       printedThgf: null,
       printedYsv: null,
+      customerId: "",
     };
   }
   return {
@@ -105,11 +114,14 @@ function initialState(policy?: Policy, template: "new" | "cancel" = "new"): Form
     nationalId: policy.nationalId,
     phone: policy.phone,
     birthDate: policy.birthDate,
+    address: policy.address ?? "",
     partaj: policy.partaj,
     branch: policy.branch,
     policyNo: policy.policyNo,
     plate: policy.plate,
     documentSerial: policy.documentSerial,
+    chassisNo: policy.chassisNo ?? "",
+    motorNo: policy.motorNo ?? "",
     addressCode: policy.addressCode,
     daskNo: policy.daskNo,
     netPremium: policy.netPremium,
@@ -127,6 +139,7 @@ function initialState(policy?: Policy, template: "new" | "cancel" = "new"): Form
     printedGhk: policy.ghk,
     printedThgf: policy.thgf,
     printedYsv: policy.ysv,
+    customerId: policy.customerId ?? "",
   };
 }
 
@@ -134,7 +147,7 @@ function applyDraft(
   prev: FormState,
   draft: ParsedPolicyDraft,
   fileName: string,
-  options?: { template?: "new" | "cancel"; existing?: Policy[] },
+  options?: { template?: "new" | "cancel"; existing?: Policy[]; customers?: Customer[] },
 ): FormState {
   const notary = draft.documentKind === "notary-sale";
   const template = options?.template ?? "new";
@@ -145,15 +158,21 @@ function applyDraft(
       )
     : undefined;
   const party = notary ? notaryPartyForMode(draft, template) : { name: draft.customerName, nationalId: draft.nationalId };
+  const customerMatch = matchCustomer(options?.customers ?? [], {
+    nationalId: party.nationalId,
+    customerName: party.name,
+    plate,
+  });
   const next: FormState = {
     ...prev,
     issueDate: draft.issueDate || matched?.issueDate || prev.issueDate,
     startDate: draft.startDate || matched?.startDate || prev.startDate,
     endDate: draft.endDate || matched?.endDate || prev.endDate,
-    customerName: party.name || matched?.customerName || prev.customerName,
-    nationalId: party.nationalId || matched?.nationalId || prev.nationalId,
-    phone: draft.phone || matched?.phone || prev.phone,
-    birthDate: draft.birthDate || matched?.birthDate || prev.birthDate,
+    customerName: party.name || customerMatch?.name || matched?.customerName || prev.customerName,
+    nationalId: party.nationalId || customerMatch?.nationalId || matched?.nationalId || prev.nationalId,
+    phone: draft.phone || customerMatch?.phone || matched?.phone || prev.phone,
+    birthDate: draft.birthDate || customerMatch?.birthDate || matched?.birthDate || prev.birthDate,
+    address: draft.address || customerMatch?.address || matched?.address || prev.address,
     partaj: draft.partaj || matched?.partaj || prev.partaj,
     branch: draft.branch || matched?.branch || prev.branch,
     policyNo: notary ? matched?.policyNo || prev.policyNo : draft.policyNo || matched?.policyNo || prev.policyNo,
@@ -161,9 +180,12 @@ function applyDraft(
     documentSerial: notary
       ? matched?.documentSerial || prev.documentSerial
       : draft.documentSerial || matched?.documentSerial || prev.documentSerial,
+    chassisNo: draft.chassisNo || prev.chassisNo,
+    motorNo: draft.motorNo || prev.motorNo,
     producer: prev.producer || matched?.producer || "",
     addressCode: draft.addressCode || matched?.addressCode || prev.addressCode,
     daskNo: draft.daskNo || matched?.daskNo || prev.daskNo,
+    customerId: customerMatch?.id || matched?.customerId || prev.customerId,
     netPremium: draft.netPremium ?? (matched && template === "cancel" ? -Math.abs(matched.netPremium) : prev.netPremium),
     compulsoryNet:
       draft.compulsoryNet ?? (matched && template === "cancel" ? matched.compulsoryNet : prev.compulsoryNet),
@@ -196,6 +218,7 @@ export function PolicyForm({
   settings,
   template = "new",
   existingPolicies = [],
+  customers = [],
 }: {
   policy?: Policy;
   partajlar: CatalogItem[];
@@ -204,6 +227,7 @@ export function PolicyForm({
   settings?: AppSettings;
   template?: "new" | "cancel";
   existingPolicies?: Policy[];
+  customers?: Customer[];
 }) {
   const router = useRouter();
   const merged = mergeSettings(settings);
@@ -241,7 +265,7 @@ export function PolicyForm({
     form.commission === null
       ? suggestedCommission(breakdown.netPremium, defaultRate)
       : form.commission;
-  const split = splitCommission(commission, form.producer, merged);
+  const split = splitCommission(commission, form.producer, merged, producers);
 
   function patch(partial: Partial<FormState>) {
     setForm((prev) => {
@@ -292,11 +316,14 @@ export function PolicyForm({
         nationalId: form.nationalId.replace(/\D/g, "").slice(0, 11),
         phone: form.phone.trim(),
         birthDate: form.birthDate,
+        address: form.address.trim(),
         partaj: form.partaj.trim(),
         branch: form.branch.trim(),
         policyNo: form.policyNo.trim(),
         plate: form.plate.trim().toLocaleUpperCase("tr-TR"),
         documentSerial: form.documentSerial.trim(),
+        chassisNo: form.chassisNo.trim(),
+        motorNo: form.motorNo.trim(),
         addressCode: form.addressCode.trim(),
         daskNo: form.daskNo.trim(),
         netPremium: breakdown.netPremium,
@@ -317,6 +344,8 @@ export function PolicyForm({
         cancelDate: status === "iptal" ? form.cancelDate : "",
         cancelReason: status === "iptal" ? form.cancelReason.trim() : "",
       };
+      const customerId = await upsertCustomerFromPolicy(record);
+      record.customerId = customerId;
       await getDb().policies.put(record);
       await upsertCatalogName("partajlar", record.partaj);
       await upsertCatalogName("producers", record.producer);
@@ -342,7 +371,9 @@ export function PolicyForm({
               mode={template}
               onParsed={(parsed, fileName) => {
                 setDraft(parsed);
-                setForm((prev) => applyDraft(prev, parsed, fileName, { template, existing: existingPolicies }));
+                setForm((prev) =>
+                  applyDraft(prev, parsed, fileName, { template, existing: existingPolicies, customers }),
+                );
               }}
             />
             {draft ? <PdfSummary draft={draft} /> : null}
@@ -385,6 +416,31 @@ export function PolicyForm({
         <section className="space-y-4 rounded-xl border bg-card p-4">
           <h2 className="text-sm font-semibold">Müşteri</h2>
           <div className="grid gap-4 md:grid-cols-2">
+            {customers.length ? (
+              <Field label="Kayıtlı müşteri" className="md:col-span-2">
+                <SearchableSelect
+                  value={customers.find((item) => item.id === form.customerId)?.name || ""}
+                  onChange={(name) => {
+                    const found = customers.find((item) => item.name === name);
+                    if (!found) {
+                      patch({ customerId: "", customerName: name });
+                      return;
+                    }
+                    patch({
+                      customerId: found.id,
+                      customerName: found.name,
+                      nationalId: found.nationalId || form.nationalId,
+                      phone: found.phone || form.phone,
+                      birthDate: found.birthDate || form.birthDate,
+                      address: found.address || form.address,
+                      plate: form.plate || found.plates[0] || "",
+                    });
+                  }}
+                  placeholder="Mevcut müşteriyi seçin veya aşağıya yazın"
+                  options={customers.map((item) => ({ value: item.id, label: item.name, hint: item.nationalId || item.plates[0] }))}
+                />
+              </Field>
+            ) : null}
             <Field label="Müşteri adı" className="md:col-span-2">
               <Input
                 className="h-9"
@@ -421,11 +477,14 @@ export function PolicyForm({
                 options={producers.map((p) => ({
                   value: p.id,
                   label: p.name,
-                  hint: isTaliProducer(p.name, merged)
-                    ? `Toplam komisyonun %${Math.round(merged.taliShareRate * 100)}’i`
+                  hint: isTaliProducer(p.name, merged, producers)
+                    ? `Hakediş %${Math.round((p.taliShareRate ?? merged.taliShareRate) * 100)}`
                     : "Acente işi",
                 }))}
               />
+            </Field>
+            <Field label="Adres" className="md:col-span-2">
+              <Textarea rows={2} value={form.address} onChange={(e) => patch({ address: e.target.value })} />
             </Field>
           </div>
         </section>
@@ -475,6 +534,12 @@ export function PolicyForm({
                     value={form.documentSerial}
                     onChange={(e) => patch({ documentSerial: e.target.value })}
                   />
+                </Field>
+                <Field label="Şasi no">
+                  <Input className="h-9" value={form.chassisNo} onChange={(e) => patch({ chassisNo: e.target.value })} />
+                </Field>
+                <Field label="Motor no">
+                  <Input className="h-9" value={form.motorNo} onChange={(e) => patch({ motorNo: e.target.value })} />
                 </Field>
               </>
             ) : null}

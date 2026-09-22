@@ -18,13 +18,11 @@ export function mergeSettings(raw?: Partial<AppSettings> | null): AppSettings {
       typeof raw?.taliShareRate === "number" && raw.taliShareRate >= 0 && raw.taliShareRate <= 1
         ? raw.taliShareRate
         : DEFAULT_SETTINGS.taliShareRate,
-    taliProducerNames:
-      raw?.taliProducerNames && raw.taliProducerNames.length > 0
-        ? raw.taliProducerNames
-        : DEFAULT_SETTINGS.taliProducerNames,
-    agencyProducerNames:
-      raw?.agencyProducerNames && raw.agencyProducerNames.length > 0
-        ? raw.agencyProducerNames
-        : DEFAULT_SETTINGS.agencyProducerNames,
+    taliProducerNames: Array.isArray(raw?.taliProducerNames)
+      ? raw.taliProducerNames
+      : DEFAULT_SETTINGS.taliProducerNames,
+    agencyProducerNames: Array.isArray(raw?.agencyProducerNames)
+      ? raw.agencyProducerNames
+      : DEFAULT_SETTINGS.agencyProducerNames,
   };
 }

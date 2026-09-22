@@ -3,10 +3,12 @@ import { DEFAULT_BRANCHES, DEFAULT_PARTAJS, DEFAULT_PRODUCERS } from "@/lib/cata
 import { uid } from "@/lib/id";
 import { DEFAULT_SETTINGS } from "@/lib/settings";
 import { foldTurkish } from "@/lib/text";
-import type { AppSettings, BranchItem, CatalogItem, Policy } from "@/lib/types";
+import type { AppSettings, BranchItem, CatalogItem, Customer, Policy } from "@/lib/types";
+import { matchCustomer, customerFromPolicy, mergeCustomerRecord } from "@/lib/customers";
 
 export class SigortaDB extends Dexie {
   policies!: EntityTable<Policy, "id">;
+  customers!: EntityTable<Customer, "id">;
   partajlar!: EntityTable<CatalogItem, "id">;
   branches!: EntityTable<BranchItem, "id">;
   producers!: EntityTable<CatalogItem, "id">;
@@ -51,6 +53,57 @@ export class SigortaDB extends Dexie {
           taliProducerNames: current?.taliProducerNames ?? DEFAULT_SETTINGS.taliProducerNames,
           agencyProducerNames: current?.agencyProducerNames ?? DEFAULT_SETTINGS.agencyProducerNames,
         });
+      });
+    this.version(3)
+      .stores({
+        policies:
+          "id, issueDate, startDate, endDate, customerName, partaj, branch, policyNo, status, producer, nationalId, plate, cancelDate, customerId",
+        customers: "id, name, nationalId, phone",
+        partajlar: "id, name, active",
+        branches: "id, name, profile, active",
+        producers: "id, name, active",
+        settings: "id",
+      })
+      .upgrade(async (tx) => {
+        const producers = (await tx.table("producers").toArray()) as CatalogItem[];
+        for (const producer of producers) {
+          const folded = foldTurkish(producer.name);
+          const role: CatalogItem["role"] =
+            folded === "NURDAN"
+              ? "agency"
+              : folded === "TAMER DINC" || folded === "SENEL YILDIRIM"
+                ? "tali"
+                : producer.role ?? "other";
+          await tx.table("producers").update(producer.id, {
+            role,
+            taliShareRate: role === "tali" ? (producer.taliShareRate ?? 0.5) : 0,
+          });
+        }
+        const policies = (await tx.table("policies").toArray()) as Policy[];
+        const grouped = new Map<string, Customer>();
+        for (const policy of policies) {
+          const key = policy.nationalId || foldTurkish(policy.customerName);
+          if (!key) continue;
+          const incoming = customerFromPolicy(policy);
+          const current = grouped.get(key);
+          if (!current) {
+            grouped.set(key, {
+              id: uid(),
+              createdAt: policy.createdAt || new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              ...incoming,
+            });
+          } else {
+            grouped.set(key, mergeCustomerRecord(current, { ...incoming, plate: policy.plate }));
+          }
+        }
+        const customers = [...grouped.values()];
+        if (customers.length) await tx.table("customers").bulkAdd(customers);
+        for (const policy of policies) {
+          const key = policy.nationalId || foldTurkish(policy.customerName);
+          const customer = grouped.get(key);
+          if (customer) await tx.table("policies").update(policy.id, { customerId: customer.id });
+        }
       });
   }
 }
@@ -161,6 +214,66 @@ export async function upsertBranch(name: string, profile: BranchItem["profile"],
     usageCount: 1,
     active: true,
   });
+}
+
+export async function upsertCustomerFromPolicy(policy: Policy): Promise<string> {
+  const db = getDb();
+  const all = await db.customers.toArray();
+  const matched = matchCustomer(all, policy);
+  const now = new Date().toISOString();
+  if (matched) {
+    const merged = mergeCustomerRecord(matched, {
+      ...customerFromPolicy(policy),
+      plate: policy.plate,
+    });
+    await db.customers.put(merged);
+    return matched.id;
+  }
+  const id = uid();
+  await db.customers.add({
+    id,
+    createdAt: now,
+    updatedAt: now,
+    ...customerFromPolicy(policy),
+  });
+  return id;
+}
+
+export async function saveCustomer(customer: Customer) {
+  await getDb().customers.put({ ...customer, updatedAt: new Date().toISOString() });
+}
+
+export async function deleteCustomer(id: string) {
+  const db = getDb();
+  await db.customers.delete(id);
+}
+
+export async function setCatalogActive(table: "partajlar" | "producers" | "branches", id: string, active: boolean) {
+  await getDb()[table].update(id, { active });
+}
+
+export async function addCatalogRow(
+  table: "partajlar" | "producers",
+  name: string,
+  extra?: Partial<CatalogItem>,
+): Promise<CatalogItem> {
+  const trimmed = name.trim();
+  const db = getDb();
+  const all = await db[table].toArray();
+  const existing = all.find((item) => foldTurkish(item.name) === foldTurkish(trimmed));
+  if (existing) {
+    await db[table].update(existing.id, { active: true, ...extra });
+    return { ...existing, active: true, ...extra };
+  }
+  const row: CatalogItem = {
+    id: uid(),
+    name: trimmed,
+    usageCount: 0,
+    active: true,
+    ...extra,
+  };
+  await db[table].add(row);
+  return row;
 }
 
 export async function saveSettings(patch: Partial<AppSettings>) {

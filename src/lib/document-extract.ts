@@ -3,7 +3,7 @@ import { extractPdfText } from "@/lib/pdf-extract";
 import { recognizeImage } from "@/lib/ocr";
 import type { ParsedPolicyDraft } from "@/lib/pdf-policy";
 
-async function renderPdfPagesForOcr(data: ArrayBuffer, maxPages = 2): Promise<HTMLCanvasElement[]> {
+async function renderPdfPagesForOcr(data: ArrayBuffer, maxPages = 4): Promise<HTMLCanvasElement[]> {
   const pdfjs = await import("pdfjs-dist");
   pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
   const task = pdfjs.getDocument({

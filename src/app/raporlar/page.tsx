@@ -27,7 +27,7 @@ export default function ReportsPage() {
 
   const filtered = useMemo(() => filterPolicies(policies, filters), [policies, filters]);
   const grand = sumPolicies(filtered);
-  const taliNames = producers.filter((p) => isTaliProducer(p.name, settings)).map((p) => p.name);
+  const taliNames = producers.filter((p) => isTaliProducer(p.name, settings, producers)).map((p) => p.name);
 
   const rows = useMemo(() => {
     if (tab === "partaj") return groupBy(filtered, (p) => p.partaj || "—");

@@ -11,12 +11,9 @@ import { getDb } from "@/lib/store";
 export default function PolicyDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
-  const { partajlar, branches, producers, policies, settings, ready } = useAppData();
+  const { partajlar, branches, producers, policies, settings, customers } = useAppData();
   const policy = policies.find((item) => item.id === params.id);
 
-  if (!ready) {
-    return <p className="text-muted-foreground text-sm">Yükleniyor…</p>;
-  }
   if (!policy) {
     return <p>Poliçe bulunamadı.</p>;
   }
@@ -52,6 +49,7 @@ export default function PolicyDetailPage() {
         branches={branches}
         producers={producers}
         settings={settings}
+        customers={customers}
       />
     </div>
   );

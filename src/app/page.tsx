@@ -10,7 +10,7 @@ import { groupBy, sumPolicies } from "@/lib/reports";
 import { monthKey, todayISO } from "@/lib/dates";
 
 export default function DashboardPage() {
-  const { ready, policies } = useAppData();
+  const { policies } = useAppData();
   const thisMonth = monthKey(todayISO());
   const monthPolicies = policies.filter((p) => monthKey(p.issueDate) === thisMonth && p.status === "aktif");
   const active = policies.filter((p) => p.status === "aktif");
@@ -23,10 +23,6 @@ export default function DashboardPage() {
     (p) => p.producer,
   );
   const recent = policies.slice(0, 8);
-
-  if (!ready) {
-    return <p className="text-muted-foreground text-sm">Yükleniyor…</p>;
-  }
 
   return (
     <div className="space-y-6">

@@ -22,10 +22,26 @@ export type PremiumBreakdown = {
   profile: CalcProfile;
 };
 
+export type Customer = {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+  name: string;
+  nationalId: string;
+  phone: string;
+  birthDate: string;
+  address: string;
+  plates: string[];
+  documentSerial: string;
+  notes: string;
+  source?: string;
+};
+
 export type Policy = {
   id: string;
   createdAt: string;
   updatedAt: string;
+  customerId?: string;
   issueDate: string;
   startDate: string;
   endDate: string;
@@ -33,11 +49,14 @@ export type Policy = {
   nationalId: string;
   phone: string;
   birthDate: string;
+  address?: string;
   partaj: string;
   branch: string;
   policyNo: string;
   plate: string;
   documentSerial: string;
+  chassisNo?: string;
+  motorNo?: string;
   addressCode: string;
   daskNo: string;
   netPremium: number;
@@ -66,6 +85,8 @@ export type CatalogItem = {
   name: string;
   usageCount: number;
   active: boolean;
+  role?: "tali" | "agency" | "other";
+  taliShareRate?: number;
 };
 
 export type BranchItem = CatalogItem & {

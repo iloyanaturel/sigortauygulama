@@ -49,7 +49,7 @@ export function DocumentDropzone({
       const hasCore =
         merged.customerName || merged.policyNo || merged.netPremium || merged.plate || merged.sellerName || merged.buyerName;
       if (!hasCore) {
-        toast.error("Belge okundu ama poliçe / noter bilgisi bulunamadı. Elle doldurabilirsiniz.");
+        toast.error("Belge okundu ama müşteri / poliçe bilgisi bulunamadı. Elle doldurabilirsiniz.");
         return;
       }
       if (merged.documentKind === "notary-sale") {
@@ -65,6 +65,8 @@ export function DocumentDropzone({
       if (merged.warnings.length) toast.warning(merged.warnings.slice(0, 2).join(" "));
       else if (merged.documentKind === "notary-sale") {
         toast.success("Noter satış sözleşmesi okundu, formu kontrol edip kaydedin.");
+      } else if (merged.documentKind === "ruhsat") {
+        toast.success("Ruhsat okundu, müşteri bilgilerini kontrol edip kaydedin.");
       } else {
         toast.success("PDF okundu, formu kontrol edip kaydedin.");
       }
@@ -98,11 +100,11 @@ export function DocumentDropzone({
     >
       {busy ? <Loader2Icon className="size-8 animate-spin" /> : <FileUpIcon className="size-8 opacity-80" />}
       <div>
-        <p className="text-sm font-medium">Poliçe PDF veya noter satış görseli yükleyin</p>
+        <p className="text-sm font-medium">Poliçe, ruhsat veya noter satış belgesi yükleyin</p>
         <p className="text-muted-foreground mt-1 text-xs">
           {mode === "cancel"
-            ? "İptal için PDF, JPEG, PNG veya noter satış sözleşmesi fotoğrafı. Plaka eşleşirse mevcut poliçe doldurulur."
-            : "Trafik, kasko, konut, DASK, TSS PDF’leri ve JPEG/PNG noter satış sözleşmeleri otomatik dolar."}
+            ? "İptal için PDF, JPEG, PNG, ruhsat veya noter satış fotoğrafı. Plaka eşleşirse mevcut poliçe doldurulur."
+            : "Trafik, kasko, konut, DASK, TSS PDF’leri ile JPEG/PNG ruhsat ve noter satışları otomatik dolar."}
         </p>
         {progress ? <p className="text-primary mt-2 text-xs">{progress}</p> : null}
       </div>
@@ -125,16 +127,18 @@ export const PdfDropzone = DocumentDropzone;
 
 export function PdfSummary({ draft }: { draft: ParsedPolicyDraft }) {
   const notary = draft.documentKind === "notary-sale";
+  const ruhsat = draft.documentKind === "ruhsat";
   return (
     <div className="grid gap-2 rounded-xl border bg-muted/30 p-3 text-xs sm:grid-cols-2 lg:grid-cols-4">
-      <Summary k={notary ? "Belge" : "Müşteri"} v={notary ? "Noter satış sözleşmesi" : draft.customerName || "—"} />
-      {notary ? <Summary k="Satıcı" v={draft.sellerName || "—"} /> : <Summary k="Partaj / branş" v={`${draft.partaj || "—"} · ${draft.branch || "—"}`} />}
-      {notary ? <Summary k="Alıcı" v={draft.buyerName || "—"} /> : <Summary k="Poliçe no" v={draft.policyNo || "—"} />}
+      <Summary k="Belge" v={notary ? "Noter satış" : ruhsat ? "Ruhsat" : draft.customerName || "Poliçe"} />
+      {notary ? <Summary k="Satıcı" v={draft.sellerName || "—"} /> : <Summary k="Müşteri" v={draft.customerName || "—"} />}
+      {notary ? <Summary k="Alıcı" v={draft.buyerName || "—"} /> : <Summary k="Partaj / branş" v={`${draft.partaj || "—"} · ${draft.branch || "—"}`} />}
+      <Summary k="Poliçe no" v={draft.policyNo || "—"} />
       <Summary k="Vade / tarih" v={`${formatTRDate(draft.startDate)} – ${formatTRDate(draft.endDate)}`} />
       <Summary k="Net prim" v={formatTRY(draft.netPremium)} />
       <Summary k="Brüt prim" v={formatTRY(draft.grossPremium)} />
       <Summary k="Plaka" v={draft.plate || "—"} />
-      <Summary k="DASK / adres" v={draft.daskNo || draft.addressCode || "—"} />
+      <Summary k="Adres" v={draft.address || draft.daskNo || draft.addressCode || "—"} />
     </div>
   );
 }
@@ -146,7 +150,11 @@ function mergeDrafts(base: ParsedPolicyDraft | null, extra: ParsedPolicyDraft): 
     ...Object.fromEntries(Object.entries(extra).filter(([, value]) => value !== "" && value !== null && value !== undefined)),
     warnings: [...base.warnings, ...extra.warnings],
     notes: [base.notes, extra.notes].filter(Boolean).join(" · "),
-    documentKind: extra.documentKind === "notary-sale" || base.documentKind === "notary-sale" ? "notary-sale" : extra.documentKind,
+    documentKind: extra.documentKind === "notary-sale" || base.documentKind === "notary-sale"
+      ? "notary-sale"
+      : extra.documentKind === "ruhsat" || base.documentKind === "ruhsat"
+        ? "ruhsat"
+        : extra.documentKind,
   } as ParsedPolicyDraft;
 }
 
