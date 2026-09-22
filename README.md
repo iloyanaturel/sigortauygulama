@@ -34,8 +34,10 @@ Tarayıcıda [http://localhost:3000](http://localhost:3000) açılır.
 
 1. Bu repoyu GitHub’a itin (`main` veya bu dal).
 2. [vercel.com/new](https://vercel.com/new) üzerinden GitHub reposunu bağlayın.
-3. Framework: Next.js. Build `npm run build`, çıktı Next varsayılanıdır.
+3. **Framework Preset: Next.js.** Output Directory’yi boş bırakın (`.next`, `public` veya `.vercel/output` yazmayın). Build Command varsayılan `next build` olsun.
 4. Deploy. Ortam değişkeni gerekmez.
+
+`vercel.json` bu ayarları kilitlemek için repoda durur. Dashboard’da Framework “Other” veya Output Directory dolu kalırsa Vercel boş çıktı uyarısı verir (`functions` / `static` / `services` yok).
 
 İlk açılışta **Excel’i yükle** ile 2025–2026 defterinizi aktarın, ardından yeni işleri siteden veya PDF’den girin.
 
