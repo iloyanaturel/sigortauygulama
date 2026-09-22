@@ -1,0 +1,442 @@
+TAMAMLAYICI SAĞLIK SİGORTA POLİÇESİ/BİLGİLENDİRME METNİ
+MÜŞTERİ NO
+ACENTE NO
+POLİÇE NO
+EK BELGE NO
+YENİLEME NO
+SİGORTANIN BAŞLANGIÇ VE BİTİMİ
+SÜRE
+98093607
+418479
+804000044266982
+0
+0
+17.08.2026 - 17.08.2027
+365 Gün
+SİGORTA ETTİREN BİLGİLERİ
+ADI SOYADI / ÜNVANI
+:
+NURDAN BOLAMAN
+ADRESİ
+:
+RAMİ YENİ MAH. MH. . CD. BOŞNAK HIDIRBEY SK. SK. NO: YENICILER APT  D: 19 
+EYÜPSULTAN İSTANBUL 
+DOĞUM TARİHİ
+:
+19.12.1987
+TCKN
+:
+***********
+POLİÇE DAHİLİNDEKİ SİGORTALILAR
+ADI/SOYADI
+YAKINLIK
+TCKN
+DOĞUM TARİHİ
+İLK KAYIT TARİHİ
+ÖBYG
+NURDAN BOLAMAN
+FERT
+***********
+19.12.1987
+17.08.2021
+Var
+DURU BOLAMAN
+KIZI
+***********
+16.04.2016
+17.08.2021
+Var
+AZİZ BARLAS BOLAMAN
+OĞLU
+***********
+08.06.2020
+17.08.2021
+Var
+1
+
+TAMAMLAYICI SAĞLIK SİGORTA POLİÇESİ/BİLGİLENDİRME METNİ
+MÜŞTERİ NO
+ACENTE NO
+POLİÇE NO
+EK BELGE NO
+YENİLEME NO
+SİGORTANIN BAŞLANGIÇ VE BİTİMİ
+SÜRE
+98093607
+418479
+804000044266982
+0
+0
+17.08.2026 - 17.08.2027
+365 Gün
+TAM SENLİK-YATARAK+AYAKTA TEDAVİ TEMİNAT BİLGİLERİ
+NETWORK : TSS A NETWORK 
+ANLAŞMALI
+ANLAŞMASIZ
+TEMİNAT ADI
+DÖVİZ CİNSİ
+LİMİT TÜRÜ
+LİMİT
+İŞTİRAK (%)
+LİMİT
+İŞTİRAK 
+(%)
+YATARAK TEDAVİ
+TL
+YILLIK
+LİMİTSİZ
+100 %
+SUT*3
+100 %
+HASTANE TEDAVİ  
+TL
+YILLIK
+LİMİTSİZ
+100 %
+SUT*3
+100 %
+AMELİYAT  
+TL
+YILLIK
+LİMİTSİZ
+100 %
+SUT*3
+100 %
+ODA-YEMEK-REFAKAT  
+TL
+YILLIK
+LİMİTSİZ
+100 %
+SUT*3
+100 %
+YOĞUN BAKIM  
+TL
+YILLIK
+LİMİTSİZ
+100 %
+SUT*3
+100 %
+KEMOTERAPİ  
+TL
+YILLIK
+LİMİTSİZ
+100 %
+SUT*3
+100 %
+RADYOTERAPİ  
+TL
+YILLIK
+LİMİTSİZ
+100 %
+SUT*3
+100 %
+DİYALİZ  
+TL
+YILLIK
+LİMİTSİZ
+100 %
+SUT*3
+100 %
+KÜÇÜK MÜDAHALE  
+TL
+YILLIK
+LİMİTSİZ
+100 %
+SUT*3
+100 %
+SUNİ UZUV  
+TL
+YILLIK
+80.000
+100 %
+80.000
+100 %
+EVDE BAKIM  
+TL
+YILLIK
+60.000
+100 %
+60.000
+100 %
+AMELİYAT SONRASI FTR  
+*
+TL
+YILLIK
+15 SEANS
+100 %
+SUT*3
+100 %
+TIBBİ MALZEME  
+TL
+YILLIK
+40.000
+100 %
+40.000
+100 %
+YARDIMCI TIBBİ MALZEME  
+TL
+YILLIK
+5.000
+100 %
+5.000
+100 %
+AMBULANS  
+TL
+YILLIK
+LİMİTSİZ
+100 %
+0
+0 %
+AYAKTA TEDAVİ
+TL
+ADET LIMITLI
+10
+100 %
+SUT*3
+100 %
+DOKTOR MUAYENE  
+TL
+ADET LIMITLI
+10
+100 %
+SUT*3
+100 %
+LABORATUVAR  
+TL
+ADET LIMITLI
+10
+100 %
+SUT*3
+100 %
+RADYOLOJİ  
+TL
+ADET LIMITLI
+10
+100 %
+SUT*3
+100 %
+İLERİ TANI YÖNTEMLERİ  
+TL
+ADET LIMITLI
+10
+100 %
+SUT*3
+100 %
+FTR  
+*
+TL
+ADET LIMITLI
+30 SEANS
+100 %
+SUT*3
+100 %
+EK TEMİNATLAR
+TL
+YILLIK
+LİMİTSİZ
+100 %
+0
+0 %
+HASTANE GÜNDELİK YATIŞ TAZMİNATI  
+TL
+YILLIK
+7.500
+100 %
+0
+0 %
+CHECK-UP  
+TL
+YILLIK
+YILDA 1 KEZ
+100 %
+0
+0 %
+DİŞ PAKETİ  
+TL
+YILLIK
+YILDA 1 KEZ
+100 %
+0
+0 %
+ONLINE DOKTOR GÖRÜŞMESİ  
+TL
+YILLIK
+LİMİTSİZ
+100 %
+0
+0 %
+ONLINE PSİKOLOJİK
+DANIŞMANLIK/DİYETİSYEN  
+TL
+ADET LIMITLI
+4
+100 %
+0
+0 %
+PRİM ÖDEME BİLGİLERİ
+ÖDEME PLANI
+NET PRİM
+74.218,87 TL
+TAKSİTLER
+TARİH
+TUTARI
+GİDER VERGİSİ
+0,00 TL
+6 Taksit
+24.08.2026
+74.218,87 TL
+BRÜT PRİM
+74.218,87 TL
+2
+
+TAMAMLAYICI SAĞLIK SİGORTA POLİÇESİ/BİLGİLENDİRME METNİ
+MÜŞTERİ NO
+ACENTE NO
+POLİÇE NO
+EK BELGE NO
+YENİLEME NO
+SİGORTANIN BAŞLANGIÇ VE BİTİMİ
+SÜRE
+98093607
+418479
+804000044266982
+0
+0
+17.08.2026 - 17.08.2027
+365 Gün
+Sigortalının poliçe başlangıç tarihinden önce var olan şikayet ve hastalıkları ile ilgili her türlü
+sağlık harcaması poliçe kapsamı dışındadır.
+  
+-Poliçede 
+yazılı 
+teminatlar 
+Türkiye 
+Cumhuriyeti 
+sınırları 
+içinde 
+geçerli 
+olup, 
+Sompo 
+Sigorta
+Tamamlayıcı 
+Sağlık 
+Sigortası 
+Poliçesi 
+özel 
+şart 
+,limit 
+ve 
+anlaşmalı/anlaşmasız 
+kurum 
+hüküm
+ve 
+uygulama 
+esasları 
+çerçevesinde 
+geçerlidir.Yurtdışı 
+tedavi 
+giderleri 
+poliçe 
+teminat
+kapsamında 
+değildir. 
+KKTC; 
+yurt 
+dışı 
+olarak 
+kabul 
+edilir.
+  
+  
+- 
+Anlaşmalı 
+olmayan 
+sağlık 
+kurumlarında 
+gerçekleşen 
+sağlık 
+harcamaları, 
+Sompo 
+Sigorta
+Tamamlayıcı 
+Anlaşması 
+olmayan 
+sağlık 
+kurumlarında 
+SGK 
+kullanımı 
+şartı 
+ile 
+gerçekleşmesi
+kaydıyla 
+yatarak 
+ve 
+ayakta 
+tedavilerde 
+3 
+SUT’a 
+kadar 
+poliçede 
+yazılı 
+limit, 
+iştirak 
+oranı,
+sağlık 
+sigortası 
+genel 
+şartları 
+ve 
+işbu 
+özel 
+şartlar 
+doğrultusunda 
+karşılanır. 
+Elden 
+hasar
+ödemelerinin 
+değerlendirilmesi 
+için; 
+KVKK 
+onam 
+formu, 
+aydınlatma 
+metni, 
+fatura/makbuz,
+AŞAĞIDA BELİRTİLEN BİLGİLERİ LÜTFEN DİKKATLİCE OKUYUNUZ
+  
+AÇIKLAMALAR
+Bu poliçe/katılım sertifikası kapsamında sunulan teminatlar için Ömür Boyu Yenileme
+Garantisi yukarıda belirtilen sigortalılar için kazanılmıştır. Ömür Boyu Yenileme Garantisi
+kazanmış sözleşmeniz talebiniz doğrultusunda aynı plan ile ömür boyu yenilenir. Bu
+garantinin devam etmesi için poliçe bitiş tarihinden itibaren bir ay içerisinde poliçenin/katılım
+sertifikasının yenilenmesi gerekmektedir.
+SİGORTALIYA AİT EK ŞARTLAR
+NURDAN BOLAMAN
+  
+ÖMÜR BOYU YENİLEME GARANTİSİ VERİLMİŞTİR.
+  
+BEKLEME SÜRELERİ KALDIRILMIŞTIR.
+DURU BOLAMAN
+  
+ÖMÜR BOYU YENİLEME GARANTİSİ VERİLMİŞTİR.
+  
+BEKLEME SÜRELERİ KALDIRILMIŞTIR.
+AZİZ BARLAS BOLAMAN
+  
+ÖMÜR BOYU YENİLEME GARANTİSİ VERİLMİŞTİR.
+  
+BEKLEME SÜRELERİ KALDIRILMIŞTIR.
+İNDİRİMLER/SÜRPRİMLER
+NURDAN BOLAMAN
+  
+%1 AİLE İNDİRİMİ UYGULANMIŞTIR.
+  
+DURU BOLAMAN
+  
+%1 AİLE İNDİRİMİ UYGULANMIŞTIR.
+  
+AZİZ BARLAS BOLAMAN
+  
+%1 AİLE İNDİRİMİ UYGULANMIŞTIR.
+  
+3
