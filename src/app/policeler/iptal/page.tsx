@@ -21,7 +21,7 @@ function downloadTemplate() {
 }
 
 export default function CancelPolicyPage() {
-  const { partajlar, branches, producers, settings, ready } = useAppData();
+  const { partajlar, branches, producers, settings, policies, ready } = useAppData();
   if (!ready) return <p className="text-muted-foreground text-sm">Yükleniyor…</p>;
 
   return (
@@ -30,8 +30,8 @@ export default function CancelPolicyPage() {
         <div>
           <h1 className="text-2xl font-semibold">İptal poliçesi</h1>
           <p className="text-muted-foreground max-w-2xl text-sm">
-            İptal poliçeleri aktif kayıtlardan ayrı tutulur. Prim ve komisyonu eksi yazın. PDF veya Excel
-            şablonuyla da yükleyebilirsiniz.
+            İptal poliçeleri aktif kayıtlardan ayrı tutulur. Prim ve komisyonu eksi yazın. Poliçe PDF’si,
+            noter satış JPEG/PNG görseli veya Excel şablonu yükleyebilirsiniz.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -50,6 +50,7 @@ export default function CancelPolicyPage() {
         branches={branches}
         producers={producers}
         settings={settings}
+        existingPolicies={policies}
       />
     </div>
   );

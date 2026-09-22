@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: ["127.0.0.1", "localhost"],
-  transpilePackages: ["pdfjs-dist"],
+  transpilePackages: ["pdfjs-dist", "tesseract.js"],
 };
 
 export default nextConfig;

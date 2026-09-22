@@ -27,6 +27,8 @@ import { getDb, upsertBranch, upsertCatalogName } from "@/lib/store";
 import { mergeSettings } from "@/lib/settings";
 import type { AppSettings, BranchItem, CatalogItem, Policy } from "@/lib/types";
 import type { ParsedPolicyDraft } from "@/lib/pdf-policy";
+import { notaryPartyForMode } from "@/lib/notary-sale";
+import { plateKey } from "@/lib/text";
 
 type FormState = {
   issueDate: string;
@@ -128,35 +130,62 @@ function initialState(policy?: Policy, template: "new" | "cancel" = "new"): Form
   };
 }
 
-function applyDraft(prev: FormState, draft: ParsedPolicyDraft, fileName: string): FormState {
-  return {
+function applyDraft(
+  prev: FormState,
+  draft: ParsedPolicyDraft,
+  fileName: string,
+  options?: { template?: "new" | "cancel"; existing?: Policy[] },
+): FormState {
+  const notary = draft.documentKind === "notary-sale";
+  const template = options?.template ?? "new";
+  const plate = draft.plate || prev.plate;
+  const matched = plate
+    ? options?.existing?.find(
+        (item) => plateKey(item.plate) === plateKey(plate) && (template === "cancel" ? item.status !== "iptal" : true),
+      )
+    : undefined;
+  const party = notary ? notaryPartyForMode(draft, template) : { name: draft.customerName, nationalId: draft.nationalId };
+  const next: FormState = {
     ...prev,
-    issueDate: draft.issueDate || prev.issueDate,
-    startDate: draft.startDate || prev.startDate,
-    endDate: draft.endDate || prev.endDate,
-    customerName: draft.customerName || prev.customerName,
-    nationalId: draft.nationalId || prev.nationalId,
-    phone: draft.phone || prev.phone,
-    birthDate: draft.birthDate || prev.birthDate,
-    partaj: draft.partaj || prev.partaj,
-    branch: draft.branch || prev.branch,
-    policyNo: draft.policyNo || prev.policyNo,
-    plate: draft.plate || prev.plate,
-    addressCode: draft.addressCode || prev.addressCode,
-    daskNo: draft.daskNo || prev.daskNo,
-    netPremium: draft.netPremium,
-    compulsoryNet: draft.compulsoryNet,
-    firePremium: draft.firePremium,
-    commission: null,
+    issueDate: draft.issueDate || matched?.issueDate || prev.issueDate,
+    startDate: draft.startDate || matched?.startDate || prev.startDate,
+    endDate: draft.endDate || matched?.endDate || prev.endDate,
+    customerName: party.name || matched?.customerName || prev.customerName,
+    nationalId: party.nationalId || matched?.nationalId || prev.nationalId,
+    phone: draft.phone || matched?.phone || prev.phone,
+    birthDate: draft.birthDate || matched?.birthDate || prev.birthDate,
+    partaj: draft.partaj || matched?.partaj || prev.partaj,
+    branch: draft.branch || matched?.branch || prev.branch,
+    policyNo: notary ? matched?.policyNo || prev.policyNo : draft.policyNo || matched?.policyNo || prev.policyNo,
+    plate,
+    documentSerial: notary
+      ? matched?.documentSerial || prev.documentSerial
+      : draft.documentSerial || matched?.documentSerial || prev.documentSerial,
+    producer: prev.producer || matched?.producer || "",
+    addressCode: draft.addressCode || matched?.addressCode || prev.addressCode,
+    daskNo: draft.daskNo || matched?.daskNo || prev.daskNo,
+    netPremium: draft.netPremium ?? (matched && template === "cancel" ? -Math.abs(matched.netPremium) : prev.netPremium),
+    compulsoryNet:
+      draft.compulsoryNet ?? (matched && template === "cancel" ? matched.compulsoryNet : prev.compulsoryNet),
+    firePremium: draft.firePremium ?? (matched && template === "cancel" ? matched.firePremium : prev.firePremium),
+    commission:
+      matched && template === "cancel" ? -Math.abs(matched.commission) : prev.commission,
     notes: [prev.notes, draft.notes, fileName].filter(Boolean).join(" · "),
-    status: draft.status === "iptal" ? "iptal" : prev.status,
+    status: template === "cancel" || draft.status === "iptal" ? "iptal" : prev.status,
     fromGross: false,
-    grossOverride: draft.grossPremium,
+    grossOverride:
+      draft.grossPremium ?? (matched && template === "cancel" ? -Math.abs(matched.grossPremium) : prev.grossOverride),
     printedGiderVergisi: draft.giderVergisi,
     printedGhk: draft.ghk,
     printedThgf: draft.thgf,
     printedYsv: draft.ysv,
+    cancelDate: template === "cancel" ? draft.issueDate || prev.cancelDate : prev.cancelDate,
+    cancelReason:
+      template === "cancel"
+        ? prev.cancelReason || (notary ? "Noter satışı" : "Poliçe iptali")
+        : prev.cancelReason,
   };
+  return next;
 }
 
 export function PolicyForm({
@@ -166,6 +195,7 @@ export function PolicyForm({
   producers,
   settings,
   template = "new",
+  existingPolicies = [],
 }: {
   policy?: Policy;
   partajlar: CatalogItem[];
@@ -173,6 +203,7 @@ export function PolicyForm({
   producers: CatalogItem[];
   settings?: AppSettings;
   template?: "new" | "cancel";
+  existingPolicies?: Policy[];
 }) {
   const router = useRouter();
   const merged = mergeSettings(settings);
@@ -308,9 +339,10 @@ export function PolicyForm({
         {!policy ? (
           <section className="space-y-3">
             <PdfDropzone
+              mode={template}
               onParsed={(parsed, fileName) => {
                 setDraft(parsed);
-                setForm((prev) => applyDraft(prev, parsed, fileName));
+                setForm((prev) => applyDraft(prev, parsed, fileName, { template, existing: existingPolicies }));
               }}
             />
             {draft ? <PdfSummary draft={draft} /> : null}

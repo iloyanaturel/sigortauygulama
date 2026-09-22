@@ -4,7 +4,7 @@ Kesilen poliçelerin partaj, branş, prim, vergi, komisyon ve tali takibi. Excel
 
 ## Ne işe yarar?
 
-- **PDF’den poliçe:** Trafik, kasko, konut, DASK ve TSS poliçe PDF’ini yükleyin; müşteri, poliçe no, vade ve prim satırları otomatik dolar.
+- **PDF / görselden poliçe:** Trafik, kasko, konut, DASK ve TSS PDF’leri ile **noter satış sözleşmesi** JPEG/PNG/WebP görselleri yüklenince müşteri, plaka ve tarihler otomatik dolar. İptalde satıcı + plaka; yeni poliçede alıcı + plaka kullanılır.
 - Yeni poliçede **partaj** ve **branş adı** seçilir (listede yoksa anında eklenir).
 - Branşa göre prim dökümü otomatik hesaplanır:
   - **Trafik:** G.H.K. payı %2, T.H.G. fonu %5, gider vergisi %5. Ek teminat varsa GHK/THGF yalnızca ZMSS neti üzerinden alınır.

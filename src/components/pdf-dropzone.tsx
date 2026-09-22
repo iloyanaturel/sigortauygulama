@@ -3,46 +3,77 @@
 import { useState } from "react";
 import { FileUpIcon, Loader2Icon } from "lucide-react";
 import { toast } from "sonner";
-import { parsePolicyPdf } from "@/lib/pdf-extract";
+import { parseUploadedFile } from "@/lib/document-extract";
+import { isImageFile, isPdfFile } from "@/lib/document-parse";
+import { notaryPartyForMode } from "@/lib/notary-sale";
 import { formatTRY } from "@/lib/money";
 import { formatTRDate } from "@/lib/dates";
 import { cn } from "@/lib/utils";
 import type { ParsedPolicyDraft } from "@/lib/pdf-policy";
 
-export function PdfDropzone({
+const ACCEPT = ".pdf,.jpg,.jpeg,.png,.webp,.bmp,.tif,.tiff,application/pdf,image/*";
+
+export function DocumentDropzone({
   onParsed,
   compact = false,
+  mode = "new",
 }: {
   onParsed: (draft: ParsedPolicyDraft, fileName: string) => void;
   compact?: boolean;
+  mode?: "new" | "cancel";
 }) {
   const [busy, setBusy] = useState(false);
   const [drag, setDrag] = useState(false);
+  const [progress, setProgress] = useState<string>("");
 
-  async function handleFile(file: File | undefined) {
-    if (!file) return;
-    if (!file.name.toLowerCase().endsWith(".pdf")) {
-      toast.error("Lütfen bir PDF poliçe dosyası yükleyin.");
+  async function handleFiles(list: FileList | File[] | undefined) {
+    const files = [...(list ?? [])].filter((file) => isPdfFile(file) || isImageFile(file));
+    if (!files.length) {
+      toast.error("PDF, JPEG, PNG veya WebP yükleyin.");
       return;
     }
     setBusy(true);
+    setProgress(files.some(isImageFile) ? "Görsel okunuyor…" : "PDF okunuyor…");
     try {
-      const draft = await parsePolicyPdf(await file.arrayBuffer());
-      if (!draft.customerName && !draft.policyNo && !draft.netPremium) {
-        toast.error("PDF okundu ama poliçe bilgisi bulunamadı. Elle doldurabilirsiniz.");
+      let merged: ParsedPolicyDraft | null = null;
+      const names: string[] = [];
+      for (const file of files) {
+        names.push(file.name);
+        const parsed = await parseUploadedFile(file, () => {
+          setProgress("Metin tanınıyor…");
+        });
+        merged = mergeDrafts(merged, parsed);
+      }
+      if (!merged) return;
+      const fileName = names.join(", ");
+      const hasCore =
+        merged.customerName || merged.policyNo || merged.netPremium || merged.plate || merged.sellerName || merged.buyerName;
+      if (!hasCore) {
+        toast.error("Belge okundu ama poliçe / noter bilgisi bulunamadı. Elle doldurabilirsiniz.");
         return;
       }
-      onParsed(draft, file.name);
-      if (draft.warnings.length) {
-        toast.warning(draft.warnings.join(" "));
+      if (merged.documentKind === "notary-sale") {
+        const party = notaryPartyForMode(merged, mode);
+        merged = {
+          ...merged,
+          status: mode === "cancel" ? "iptal" : merged.status,
+          customerName: party.name,
+          nationalId: party.nationalId,
+        };
+      }
+      onParsed(merged, fileName);
+      if (merged.warnings.length) toast.warning(merged.warnings.slice(0, 2).join(" "));
+      else if (merged.documentKind === "notary-sale") {
+        toast.success("Noter satış sözleşmesi okundu, formu kontrol edip kaydedin.");
       } else {
         toast.success("PDF okundu, formu kontrol edip kaydedin.");
       }
     } catch (error) {
       console.error(error);
-      toast.error("PDF okunamadı. Farklı bir tarama / metin PDF deneyin.");
+      toast.error("Belge okunamadı. Daha net bir fotoğraf veya PDF deneyin.");
     } finally {
       setBusy(false);
+      setProgress("");
     }
   }
 
@@ -62,23 +93,27 @@ export function PdfDropzone({
       onDrop={(e) => {
         e.preventDefault();
         setDrag(false);
-        void handleFile(e.dataTransfer.files?.[0]);
+        void handleFiles(e.dataTransfer.files);
       }}
     >
       {busy ? <Loader2Icon className="size-8 animate-spin" /> : <FileUpIcon className="size-8 opacity-80" />}
       <div>
-        <p className="text-sm font-medium">Poliçe PDF’ini buraya bırakın veya seçin</p>
+        <p className="text-sm font-medium">Poliçe PDF veya noter satış görseli yükleyin</p>
         <p className="text-muted-foreground mt-1 text-xs">
-          Trafik, kasko, konut, DASK ve TSS poliçelerinden müşteri, prim ve tarih alanları otomatik dolar.
+          {mode === "cancel"
+            ? "İptal için PDF, JPEG, PNG veya noter satış sözleşmesi fotoğrafı. Plaka eşleşirse mevcut poliçe doldurulur."
+            : "Trafik, kasko, konut, DASK, TSS PDF’leri ve JPEG/PNG noter satış sözleşmeleri otomatik dolar."}
         </p>
+        {progress ? <p className="text-primary mt-2 text-xs">{progress}</p> : null}
       </div>
       <input
         type="file"
-        accept="application/pdf,.pdf"
+        accept={ACCEPT}
+        multiple
         className="sr-only"
         disabled={busy}
         onChange={(e) => {
-          void handleFile(e.target.files?.[0]);
+          void handleFiles(e.target.files ?? undefined);
           e.currentTarget.value = "";
         }}
       />
@@ -86,19 +121,33 @@ export function PdfDropzone({
   );
 }
 
+export const PdfDropzone = DocumentDropzone;
+
 export function PdfSummary({ draft }: { draft: ParsedPolicyDraft }) {
+  const notary = draft.documentKind === "notary-sale";
   return (
     <div className="grid gap-2 rounded-xl border bg-muted/30 p-3 text-xs sm:grid-cols-2 lg:grid-cols-4">
-      <Summary k="Müşteri" v={draft.customerName || "—"} />
-      <Summary k="Partaj / branş" v={`${draft.partaj || "—"} · ${draft.branch || "—"}`} />
-      <Summary k="Poliçe no" v={draft.policyNo || "—"} />
-      <Summary k="Vade" v={`${formatTRDate(draft.startDate)} – ${formatTRDate(draft.endDate)}`} />
+      <Summary k={notary ? "Belge" : "Müşteri"} v={notary ? "Noter satış sözleşmesi" : draft.customerName || "—"} />
+      {notary ? <Summary k="Satıcı" v={draft.sellerName || "—"} /> : <Summary k="Partaj / branş" v={`${draft.partaj || "—"} · ${draft.branch || "—"}`} />}
+      {notary ? <Summary k="Alıcı" v={draft.buyerName || "—"} /> : <Summary k="Poliçe no" v={draft.policyNo || "—"} />}
+      <Summary k="Vade / tarih" v={`${formatTRDate(draft.startDate)} – ${formatTRDate(draft.endDate)}`} />
       <Summary k="Net prim" v={formatTRY(draft.netPremium)} />
       <Summary k="Brüt prim" v={formatTRY(draft.grossPremium)} />
       <Summary k="Plaka" v={draft.plate || "—"} />
       <Summary k="DASK / adres" v={draft.daskNo || draft.addressCode || "—"} />
     </div>
   );
+}
+
+function mergeDrafts(base: ParsedPolicyDraft | null, extra: ParsedPolicyDraft): ParsedPolicyDraft {
+  if (!base) return extra;
+  return {
+    ...base,
+    ...Object.fromEntries(Object.entries(extra).filter(([, value]) => value !== "" && value !== null && value !== undefined)),
+    warnings: [...base.warnings, ...extra.warnings],
+    notes: [base.notes, extra.notes].filter(Boolean).join(" · "),
+    documentKind: extra.documentKind === "notary-sale" || base.documentKind === "notary-sale" ? "notary-sale" : extra.documentKind,
+  } as ParsedPolicyDraft;
 }
 
 function Summary({ k, v }: { k: string; v: string }) {

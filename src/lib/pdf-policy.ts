@@ -1,13 +1,18 @@
 import { defaultEndDate, toISODate } from "@/lib/dates";
 import { parseTRNumber } from "@/lib/money";
 import { normalizeBranch, normalizePartaj } from "@/lib/catalog";
-import { compactSpaces, foldTurkish, titleName } from "@/lib/text";
+import { compactSpaces, extractTurkishPlate, foldTurkish, titleName } from "@/lib/text";
 import type { PolicyStatus } from "@/lib/types";
 
 export type ParsedPolicyDraft = {
+  documentKind?: "policy" | "notary-sale";
   branch: string;
   partaj: string;
   customerName: string;
+  sellerName?: string;
+  buyerName?: string;
+  sellerNationalId?: string;
+  buyerNationalId?: string;
   nationalId: string;
   phone: string;
   birthDate: string;
@@ -27,6 +32,9 @@ export type ParsedPolicyDraft = {
   ysv: number | null;
   firePremium: number | null;
   compulsoryNet: number | null;
+  salePrice?: number | null;
+  chassisNo?: string;
+  motorNo?: string;
   status: PolicyStatus;
   notes: string;
   warnings: string[];
@@ -218,8 +226,9 @@ function extractPolicyNo(text: string, branch: string): { policyNo: string; dask
 }
 
 function extractPlate(text: string): string {
-  const match = text.match(/PLAKA\s*NO\s*:?\s*([0-9]{2,3}\s*[A-ZÇĞİÖŞÜ]{1,4}\s*[0-9]{2,4})/i);
-  return compactSpaces(match?.[1] ?? "").toLocaleUpperCase("tr-TR");
+  const labeled = text.match(/PLAKA\s*NO\s*:?\s*([0-9]{2,3}\s*[A-ZÇĞİÖŞÜ]{1,4}\s*[0-9]{2,4})/i);
+  if (labeled?.[1]) return compactSpaces(labeled[1]).toLocaleUpperCase("tr-TR");
+  return extractTurkishPlate(text);
 }
 
 function extractAddressCode(text: string): string {
@@ -294,5 +303,6 @@ export function parsePolicyFromText(rawText: string): ParsedPolicyDraft {
     status,
     notes: "",
     warnings,
+    documentKind: "policy",
   };
 }
